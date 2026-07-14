@@ -1,0 +1,196 @@
+.upload {
+  --main: #534ab7;
+  --main-light: #f2f0fb;
+  --main-border: #ded9f5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  color: #2c2a3a;
+  background: #ffffff;
+}
+
+/* Header */
+.upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--main-border);
+}
+
+.back-button {
+  border: none;
+  background: none;
+  color: #6b6375;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.back-button:hover {
+  color: var(--main);
+}
+
+.upload-header-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.mode-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--main-light);
+  color: var(--main);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nickname-badge {
+  font-size: 14px;
+  color: #6b6375;
+}
+
+/* Main */
+.upload-main {
+  flex: 1;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Dropzone */
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--main-border);
+  border-radius: 16px;
+  padding: 56px 24px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--main-light);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+  border-color: var(--main);
+  background: #ebe8fa;
+}
+
+.dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #211f2e;
+  margin: 0 0 8px;
+}
+
+.dropzone-hint {
+  font-size: 13px;
+  color: #8b8494;
+}
+
+.dropzone-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* File list */
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+}
+
+.file-thumbnail {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 14px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-remove {
+  border: none;
+  background: none;
+  color: #8b8494;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.file-remove:hover {
+  color: var(--main);
+}
+
+/* Masking note */
+.masking-note {
+  font-size: 13px;
+  color: #8b8494;
+  line-height: 150%;
+  text-align: center;
+}
+
+/* Analyze button */
+.analyze-button {
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.analyze-button:hover {
+  opacity: 0.9;
+}
+
+.analyze-button:disabled {
+  background: #c9c5e0;
+  cursor: not-allowed;
+}

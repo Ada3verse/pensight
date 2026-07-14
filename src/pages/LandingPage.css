@@ -1,0 +1,336 @@
+.landing {
+  --main: #534ab7;
+  --main-light: #f2f0fb;
+  --main-border: #ded9f5;
+  display: flex;
+  flex-direction: column;
+  color: #2c2a3a;
+  background: #ffffff;
+  text-align: center;
+}
+
+/* Navigation */
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--main-border);
+}
+
+.landing-logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--main);
+  letter-spacing: -0.4px;
+}
+
+.landing-nav-note {
+  font-size: 14px;
+  color: #6b6375;
+}
+
+/* Hero */
+.landing-hero {
+  padding: 64px 24px 48px;
+}
+
+.landing-hero h1 {
+  font-size: 40px;
+  line-height: 130%;
+  letter-spacing: -0.8px;
+  color: #211f2e;
+  margin: 0 0 16px;
+}
+
+.landing-hero p {
+  font-size: 17px;
+  color: #6b6375;
+}
+
+/* Feature cards */
+.landing-features {
+  display: flex;
+  gap: 20px;
+  padding: 0 32px 56px;
+}
+
+.feature-card {
+  flex: 1;
+  padding: 28px 20px;
+  border: 1px solid var(--main-border);
+  border-radius: 14px;
+  background: var(--main-light);
+  text-align: left;
+}
+
+.feature-card h2 {
+  font-size: 18px;
+  color: var(--main);
+  margin: 0 0 8px;
+}
+
+.feature-card p {
+  font-size: 14px;
+  color: #6b6375;
+  line-height: 150%;
+}
+
+/* Mode buttons */
+.landing-modes {
+  display: flex;
+  gap: 16px;
+  padding: 0 32px 48px;
+}
+
+.mode-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 20px;
+  border: 2px solid var(--main-border);
+  border-radius: 14px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mode-button:hover {
+  border-color: var(--main);
+}
+
+.mode-button.active {
+  border-color: var(--main);
+  background: var(--main-light);
+}
+
+.mode-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #211f2e;
+}
+
+.mode-description {
+  font-size: 13px;
+  color: #6b6375;
+}
+
+/* Start form */
+.landing-start {
+  padding: 0 32px 64px;
+}
+
+.start-form {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.nickname-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+}
+
+.nickname-input:focus {
+  border-color: var(--main);
+}
+
+.start-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.start-button:hover {
+  opacity: 0.9;
+}
+
+.start-button:disabled {
+  background: #c9c5e0;
+  cursor: not-allowed;
+}
+
+.vault-button {
+  padding: 12px 24px;
+  border: 1px solid var(--main-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--main);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.vault-button:hover:not(:disabled) {
+  background: var(--main-light);
+}
+
+.vault-button:disabled {
+  color: #c9c5e0;
+  border-color: #eeecf7;
+  cursor: not-allowed;
+}
+
+.start-note {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #8b8494;
+}
+
+/* PIN form */
+.pin-form {
+  max-width: 360px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pin-nickname {
+  font-size: 16px;
+  font-weight: 700;
+  color: #211f2e;
+  margin: 0;
+}
+
+.pin-message {
+  font-size: 14px;
+  color: #6b6375;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.pin-digits {
+  display: flex;
+  gap: 12px;
+}
+
+.pin-digit-input {
+  width: 48px;
+  height: 56px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  font-size: 24px;
+  text-align: center;
+  outline: none;
+}
+
+.pin-digit-input:focus {
+  border-color: var(--main);
+}
+
+.pin-digit-input:disabled {
+  background: #f4f3f8;
+  cursor: not-allowed;
+}
+
+.pin-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #b23b3b;
+  text-align: center;
+}
+
+.pin-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.pin-back-button {
+  border: none;
+  background: none;
+  color: #8b8494;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pin-back-button:hover {
+  color: var(--main);
+}
+
+/* Steps */
+.landing-steps {
+  padding: 0 32px 64px;
+}
+
+.landing-steps h2 {
+  font-size: 22px;
+  color: #211f2e;
+  margin: 0 0 32px;
+}
+
+.steps-list {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 120px;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #2c2a3a;
+}
+
+/* Footer */
+.landing-footer {
+  padding: 24px 32px;
+  border-top: 1px solid var(--main-border);
+  font-size: 13px;
+  color: #8b8494;
+}
+
+@media (max-width: 720px) {
+  .landing-features,
+  .landing-modes {
+    flex-direction: column;
+  }
+
+  .start-form {
+    flex-direction: column;
+  }
+}
