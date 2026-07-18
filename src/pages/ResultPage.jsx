@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import { analyzeDocument, AiError } from '../utils/aiService'
+import { maskPersonalInfo } from '../utils/maskingService'
 import { saveDocument, updateDocument } from '../utils/firestoreService'
 import { formatAiSummary } from '../utils/textFormat'
 import './ResultPage.css'
@@ -24,7 +25,17 @@ const SAVE_BUTTON_LABELS = {
   error: '저장 실패',
 }
 
-const STAGE_MESSAGES = ['이미지 전처리 중...', 'OCR 분석 중...', '텍스트 추출 완료']
+const STAGE_MESSAGES = [
+  '이미지 전처리 중...',
+  'OCR 분석 중...',
+  '개인정보 마스킹 중...',
+  '완료',
+]
+
+const MASKING_NOTICE_MESSAGES = {
+  success: '개인정보가 자동으로 마스킹되었습니다. 내용을 확인하고 필요시 직접 수정해주세요.',
+  error: '개인정보 자동 마스킹에 실패했습니다. 업로드 전 민감 정보를 직접 확인하고 수정해주세요.',
+}
 
 const DEFAULT_ERROR_MESSAGE =
   'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
@@ -54,6 +65,7 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
   const [ocrStatus, setOcrStatus] = useState('processing')
   const [ocrText, setOcrText] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [maskingNotice, setMaskingNotice] = useState(null)
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiSummary, setAiSummary] = useState('')
   const [aiError, setAiError] = useState('')
@@ -79,10 +91,14 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
         const text = await extractTextFromFile(file)
         if (cancelled) return
         setStageIndex(2)
-        setOcrText(text)
+        const maskingResult = await maskPersonalInfo(text)
+        if (cancelled) return
+        setOcrText(maskingResult.text)
+        setStageIndex(3)
         await delay(400)
         if (cancelled) return
         setOcrStatus('done')
+        setMaskingNotice(maskingResult.success ? 'success' : 'error')
       } catch (err) {
         if (cancelled) return
         setErrorMessage(err instanceof OcrError ? err.message : DEFAULT_ERROR_MESSAGE)
@@ -175,6 +191,20 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
           <span className="nickname-badge">{nickname}님</span>
         </div>
       </header>
+
+      {maskingNotice && (
+        <div className={`masking-notice ${maskingNotice}`}>
+          <span>{MASKING_NOTICE_MESSAGES[maskingNotice]}</span>
+          <button
+            type="button"
+            className="masking-notice-close"
+            onClick={() => setMaskingNotice(null)}
+            aria-label="안내 닫기"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <main className="result-main">
         <section className="result-preview">

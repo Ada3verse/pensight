@@ -119,7 +119,7 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
         )}
 
         <p className="masking-note">
-          개인정보는 업로드 시 자동으로 마스킹됩니다. 업로드 전 민감 정보를 직접 가려주셔도 됩니다.
+          개인정보는 OCR 완료 후 자동으로 마스킹됩니다. 업로드 전 민감 정보를 직접 가려주셔도 됩니다.
         </p>
 
         <button

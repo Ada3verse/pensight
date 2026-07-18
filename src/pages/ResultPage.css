@@ -38,6 +38,49 @@
   color: #6b6375;
 }
 
+/* Masking notice */
+.masking-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 32px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: var(--main-light);
+  color: var(--main);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.masking-notice.success {
+  border-color: #bbf0cf;
+  background: #eafbf1;
+  color: #1a8f4c;
+}
+
+.masking-notice.error {
+  border-color: #f6e29b;
+  background: #fdf7e3;
+  color: #9a7615;
+}
+
+.masking-notice-close {
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.masking-notice-close:hover {
+  opacity: 0.7;
+}
+
 /* Layout */
 .result-main {
   flex: 1;
