@@ -55,6 +55,7 @@ function LandingPage({ onStart, onViewVault }) {
 
   const [step, setStep] = useState('form')
   const [pendingAction, setPendingAction] = useState(null)
+  const [confirmedNickname, setConfirmedNickname] = useState('')
   const [isNewNickname, setIsNewNickname] = useState(false)
   const [digits, setDigits] = useState(EMPTY_DIGITS)
   const [attempts, setAttempts] = useState(0)
@@ -77,6 +78,7 @@ function LandingPage({ onStart, onViewVault }) {
     setCheckingNickname(true)
     try {
       const exists = await checkNicknameExists(trimmedNickname)
+      setConfirmedNickname(trimmedNickname)
       setIsNewNickname(!exists)
       setDigits(EMPTY_DIGITS)
       setAttempts(0)
@@ -114,26 +116,24 @@ function LandingPage({ onStart, onViewVault }) {
   }
 
   const handlePinSuccess = () => {
-    const trimmedNickname = nickname.trim()
     if (pendingAction === 'vault') {
-      onViewVault?.(trimmedNickname)
+      onViewVault?.(confirmedNickname)
     } else {
-      onStart?.({ nickname: trimmedNickname, mode: selectedMode })
+      onStart?.({ nickname: confirmedNickname, mode: selectedMode })
     }
   }
 
   const submitPin = async (pinValue) => {
     if (locked || submittingPin || pinValue.length !== 4) return
-    const trimmedNickname = nickname.trim()
 
     setSubmittingPin(true)
     setPinError('')
     try {
       if (isNewNickname) {
-        await saveUserPin(trimmedNickname, pinValue)
+        await saveUserPin(confirmedNickname, pinValue)
         handlePinSuccess()
       } else {
-        const ok = await verifyUserPin(trimmedNickname, pinValue)
+        const ok = await verifyUserPin(confirmedNickname, pinValue)
         if (ok) {
           handlePinSuccess()
         } else {
@@ -222,6 +222,7 @@ function LandingPage({ onStart, onViewVault }) {
                 className="nickname-input"
                 placeholder="닉네임을 입력하세요"
                 value={nickname}
+                disabled={checkingNickname}
                 onChange={(event) => setNickname(event.target.value)}
               />
               <button
@@ -248,10 +249,10 @@ function LandingPage({ onStart, onViewVault }) {
           </>
         ) : (
           <div className="pin-form">
-            <p className="pin-nickname">{nickname.trim()}님</p>
+            <p className="pin-nickname">{confirmedNickname}님</p>
             <p className="pin-message">
               {isNewNickname
-                ? '새로운 닉네임입니다. PIN 4자리를 설정해주세요.'
+                ? '새로운 닉네임입니다. 사용할 PIN 4자리를 설정해주세요.'
                 : 'PIN 4자리를 입력해주세요.'}
             </p>
             <div className="pin-digits">
