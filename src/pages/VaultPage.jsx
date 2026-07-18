@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { deleteDocument, getDocuments, updateDocument } from '../utils/firestoreService'
 import { analyzeDocument, AiError } from '../utils/aiService'
 import { formatAiSummary } from '../utils/textFormat'
+import { generatePDF, buildPdfFileName } from '../utils/pdfService'
+import PdfSectionModal from '../components/PdfSectionModal'
 import './VaultPage.css'
 
 const MODE_LABELS = {
@@ -40,6 +42,8 @@ function VaultPage({ nickname, onBack }) {
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiSummaryText, setAiSummaryText] = useState('')
   const [aiError, setAiError] = useState('')
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -105,6 +109,39 @@ function VaultPage({ nickname, onBack }) {
     } catch (err) {
       setAiError(err instanceof AiError ? err.message : DEFAULT_AI_ERROR_MESSAGE)
       setAiStatus('error')
+    }
+  }
+
+  const handlePdfConfirm = async (selectedSections) => {
+    setPdfGenerating(true)
+    try {
+      const sections = []
+      if (selectedSections.info) {
+        sections.push({
+          type: 'info',
+          title: '문서 정보',
+          items: [
+            ['파일명', selectedDoc.fileName || '파일명 없음'],
+            ['처리 날짜', formatDate(selectedDoc.createdAt)],
+            ['모드', MODE_LABELS[selectedDoc.mode] ?? selectedDoc.mode],
+          ],
+        })
+      }
+      if (selectedSections.text) {
+        sections.push({
+          type: 'text',
+          title: '추출된 텍스트',
+          content: selectedDoc.extractedText ?? '',
+        })
+      }
+      if (selectedSections.ai && aiStatus === 'done' && aiSummaryText) {
+        sections.push({ type: 'ai', title: 'AI 요약·추천', content: aiSummaryText })
+      }
+
+      await generatePDF(sections, buildPdfFileName())
+    } finally {
+      setPdfGenerating(false)
+      setPdfModalOpen(false)
     }
   }
 
@@ -200,6 +237,13 @@ function VaultPage({ nickname, onBack }) {
               <button type="button" className="modal-button" onClick={handleCopy}>
                 {copyLabel}
               </button>
+              <button
+                type="button"
+                className="modal-button"
+                onClick={() => setPdfModalOpen(true)}
+              >
+                PDF 다운로드
+              </button>
               {selectedDoc.mode === 'quick' &&
                 (aiStatus === 'idle' || aiStatus === 'error') && (
                   <button type="button" className="modal-button primary" onClick={handleStartAi}>
@@ -213,6 +257,15 @@ function VaultPage({ nickname, onBack }) {
           </div>
         </div>
       )}
+
+      <PdfSectionModal
+        open={pdfModalOpen}
+        hasMapping={false}
+        hasAi={aiStatus === 'done' && Boolean(aiSummaryText)}
+        generating={pdfGenerating}
+        onCancel={() => setPdfModalOpen(false)}
+        onConfirm={handlePdfConfirm}
+      />
     </div>
   )
 }

@@ -8,6 +8,15 @@ const MODE_LABELS = {
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 
+const DOC_TYPES = [
+  { id: 'violence', label: '학교폭력 진술서', icon: '🛡️' },
+  { id: 'career', label: '진로 상담지', icon: '🧭' },
+  { id: 'assignment', label: '수행평가 답안지', icon: '✏️' },
+  { id: 'general', label: '일반 문서', icon: '📄' },
+]
+
+const DEFAULT_DOC_TYPE = 'general'
+
 function createFileItem(file) {
   const isImage = file.type.startsWith('image/')
   return {
@@ -20,6 +29,7 @@ function createFileItem(file) {
 function UploadPage({ nickname, mode, onBack, onAnalyze }) {
   const [files, setFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
+  const [docType, setDocType] = useState(DEFAULT_DOC_TYPE)
   const inputRef = useRef(null)
 
   const addFiles = (fileList) => {
@@ -51,7 +61,7 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
 
   const handleAnalyze = () => {
     if (files.length === 0) return
-    onAnalyze?.(files.map((item) => item.file))
+    onAnalyze?.(files.map((item) => item.file), docType)
   }
 
   return (
@@ -69,6 +79,23 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
       </header>
 
       <main className="upload-main">
+        <div className="doc-type-section">
+          <p className="doc-type-label">문서 유형을 선택하세요</p>
+          <div className="doc-type-grid">
+            {DOC_TYPES.map((type) => (
+              <button
+                type="button"
+                key={type.id}
+                className={`doc-type-card ${docType === type.id ? 'active' : ''}`}
+                onClick={() => setDocType(type.id)}
+              >
+                <span className="doc-type-icon">{type.icon}</span>
+                <span className="doc-type-name">{type.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div
           className={`dropzone ${isDragging ? 'dragging' : ''}`}
           onClick={() => inputRef.current?.click()}

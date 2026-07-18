@@ -9,13 +9,13 @@ export class AiError extends Error {
 
 const DEFAULT_ERROR_MESSAGE = 'AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
-export async function analyzeDocument(text, mode) {
+export async function analyzeDocument(text, mode, docType) {
   let response
   try {
     response = await fetch(AI_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, mode }),
+      body: JSON.stringify({ text, mode, docType }),
     })
   } catch {
     throw new AiError(DEFAULT_ERROR_MESSAGE)

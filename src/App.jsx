@@ -4,14 +4,16 @@ import UploadPage from './pages/UploadPage'
 import ResultPage from './pages/ResultPage'
 import VaultPage from './pages/VaultPage'
 import AdminPage from './pages/AdminPage'
+import SespecPage from './pages/SespecPage'
 
-const PROTECTED_PAGES = ['upload', 'result', 'vault']
+const PROTECTED_PAGES = ['upload', 'result', 'vault', 'sespec']
 
 function App() {
   const [page, setPage] = useState('landing')
   const [nickname, setNickname] = useState('')
   const [mode, setMode] = useState('ocr')
   const [files, setFiles] = useState([])
+  const [docType, setDocType] = useState('general')
   const [pinAuthenticated, setPinAuthenticated] = useState(false)
   const [hash, setHash] = useState(() => window.location.hash)
 
@@ -34,8 +36,15 @@ function App() {
     setPage('vault')
   }
 
-  const handleAnalyze = (selectedFiles) => {
+  const handleSespec = (sespecNickname) => {
+    setNickname(sespecNickname)
+    setPinAuthenticated(true)
+    setPage('sespec')
+  }
+
+  const handleAnalyze = (selectedFiles, selectedDocType) => {
     setFiles(selectedFiles)
+    setDocType(selectedDocType)
     setPage('result')
   }
 
@@ -49,7 +58,13 @@ function App() {
   }
 
   if (PROTECTED_PAGES.includes(page) && !pinAuthenticated) {
-    return <LandingPage onStart={handleStart} onViewVault={handleViewVault} />
+    return (
+      <LandingPage
+        onStart={handleStart}
+        onViewVault={handleViewVault}
+        onSespec={handleSespec}
+      />
+    )
   }
 
   if (page === 'vault') {
@@ -62,6 +77,7 @@ function App() {
         files={files}
         nickname={nickname}
         mode={mode}
+        docType={docType}
         onBack={() => setPage('upload')}
       />
     )
@@ -78,7 +94,13 @@ function App() {
     )
   }
 
-  return <LandingPage onStart={handleStart} onViewVault={handleViewVault} />
+  if (page === 'sespec') {
+    return <SespecPage nickname={nickname} onBack={returnToLanding} />
+  }
+
+  return (
+    <LandingPage onStart={handleStart} onViewVault={handleViewVault} onSespec={handleSespec} />
+  )
 }
 
 export default App

@@ -1,0 +1,105 @@
+.pdf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 31, 46, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 20;
+}
+
+.pdf-modal-content {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pdf-modal-content h2 {
+  font-size: 17px;
+  color: #211f2e;
+  margin: 0;
+}
+
+.pdf-modal-hint {
+  font-size: 13px;
+  color: #8b8494;
+  margin: 0;
+}
+
+.pdf-modal-section-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdf-modal-section-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #2c2a3a;
+  cursor: pointer;
+}
+
+.pdf-modal-section-list input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--main, #534ab7);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pdf-modal-button {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--main, #534ab7);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pdf-modal-button:hover:not(:disabled) {
+  background: var(--main-light, #f2f0fb);
+}
+
+.pdf-modal-button:disabled {
+  color: #c9c5e0;
+  border-color: #eeecf7;
+  cursor: not-allowed;
+}
+
+.pdf-modal-button.primary {
+  background: var(--main, #534ab7);
+  color: #ffffff;
+  border-color: var(--main, #534ab7);
+}
+
+.pdf-modal-button.primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.pdf-modal-button.primary:disabled {
+  background: #c9c5e0;
+  border-color: #c9c5e0;
+  color: #ffffff;
+  cursor: not-allowed;
+}

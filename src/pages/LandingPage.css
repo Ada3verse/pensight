@@ -125,9 +125,10 @@
 
 .start-form {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
-  max-width: 560px;
+  max-width: 720px;
   margin: 0 auto;
 }
 
@@ -153,6 +154,7 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: opacity 0.2s;
 }
 
@@ -324,7 +326,21 @@
   color: #8b8494;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
+  .landing-nav,
+  .landing-features,
+  .landing-modes,
+  .landing-start,
+  .landing-steps,
+  .landing-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .landing-hero h1 {
+    font-size: 20px;
+  }
+
   .landing-features,
   .landing-modes {
     flex-direction: column;
@@ -332,5 +348,11 @@
 
   .start-form {
     flex-direction: column;
+  }
+
+  .nickname-input,
+  .start-button,
+  .vault-button {
+    width: 100%;
   }
 }

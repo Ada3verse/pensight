@@ -4,6 +4,8 @@ const PDFJS_SCRIPT_URL =
 const PDFJS_WORKER_URL =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 const PDF_RENDER_SCALE = 2
+const MAX_PDF_PAGES = 10
+const PAGE_LIMIT_MESSAGE = '페이지가 너무 많습니다. 처음 10페이지만 처리합니다.'
 
 export class OcrError extends Error {
   constructor(type, message) {
@@ -46,25 +48,6 @@ function loadPdfJs() {
   return pdfjsLoadPromise
 }
 
-async function pdfFileToPageImages(file) {
-  const pdfjsLib = await loadPdfJs()
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-
-  const base64Pages = []
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber)
-    const viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const context = canvas.getContext('2d')
-    await page.render({ canvasContext: context, viewport }).promise
-    base64Pages.push(canvas.toDataURL('image/png').split(',')[1])
-  }
-  return base64Pages
-}
-
 async function callVisionApi(base64Image, mimeType) {
   let response
   try {
@@ -94,18 +77,50 @@ async function extractTextFromImage(file) {
   return callVisionApi(base64, file.type)
 }
 
-async function extractTextFromPdf(file) {
-  const base64Pages = await pdfFileToPageImages(file)
-  const pageTexts = []
-  for (const base64 of base64Pages) {
-    pageTexts.push(await callVisionApi(base64, 'image/png'))
+async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
+  const pdfjsLib = await loadPdfJs()
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+  const totalPages = pdf.numPages
+  const pagesToProcess = Math.min(totalPages, MAX_PDF_PAGES)
+  if (totalPages > MAX_PDF_PAGES) {
+    onNotice?.(PAGE_LIMIT_MESSAGE)
   }
-  return pageTexts.join('\n\n')
+
+  async function renderAndRecognizePage(pageNumber) {
+    onProgress?.(`PDF 분석 중... (${pageNumber}/${pagesToProcess}페이지)`)
+    const page = await pdf.getPage(pageNumber)
+    const viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const context = canvas.getContext('2d')
+    await page.render({ canvasContext: context, viewport }).promise
+    const base64 = canvas.toDataURL('image/png').split(',')[1]
+    return callVisionApi(base64, 'image/png')
+  }
+
+  if (pagesToProcess === 1) {
+    return renderAndRecognizePage(1)
+  }
+
+  const sections = []
+  for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber += 1) {
+    try {
+      const pageText = await renderAndRecognizePage(pageNumber)
+      sections.push(`--- ${pageNumber}페이지 ---\n${pageText}`)
+    } catch {
+      sections.push(`--- ${pageNumber}페이지 (인식 실패) ---`)
+    }
+  }
+
+  return sections.join('\n')
 }
 
-export async function extractTextFromFile(file) {
+export async function extractTextFromFile(file, options) {
   if (file.type === 'application/pdf') {
-    return extractTextFromPdf(file)
+    return extractTextFromPdf(file, options)
   }
   return extractTextFromImage(file)
 }

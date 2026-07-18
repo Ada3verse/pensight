@@ -3,7 +3,9 @@ import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import { analyzeDocument, AiError } from '../utils/aiService'
 import { maskPersonalInfo } from '../utils/maskingService'
 import { saveDocument, updateDocument } from '../utils/firestoreService'
-import { formatAiSummary } from '../utils/textFormat'
+import { formatAiSummary, parseAiSections } from '../utils/textFormat'
+import { generatePDF, buildPdfFileName } from '../utils/pdfService'
+import PdfSectionModal from '../components/PdfSectionModal'
 import './ResultPage.css'
 
 const MODE_LABELS = {
@@ -43,36 +45,6 @@ const DEFAULT_ERROR_MESSAGE =
 const DEFAULT_AI_ERROR_MESSAGE =
   'AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
-const TEXT_MARKER = '[변환된 텍스트]'
-const MAPPING_MARKER = '[인물 매핑표]'
-
-function parseMaskingResult(rawText) {
-  if (!rawText.includes(TEXT_MARKER)) {
-    return { displayText: rawText, mappingTable: [] }
-  }
-
-  const afterMarker = rawText.slice(rawText.indexOf(TEXT_MARKER) + TEXT_MARKER.length)
-  const mappingIndex = afterMarker.indexOf(MAPPING_MARKER)
-
-  if (mappingIndex === -1) {
-    return { displayText: afterMarker.trim(), mappingTable: [] }
-  }
-
-  const displayText = afterMarker.slice(0, mappingIndex).trim()
-  const mappingTable = afterMarker
-    .slice(mappingIndex + MAPPING_MARKER.length)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [symbol, ...rest] = line.split(':')
-      return { symbol: symbol.trim(), name: rest.join(':').trim() }
-    })
-    .filter((entry) => entry.symbol && entry.name)
-
-  return { displayText, mappingTable }
-}
-
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -86,7 +58,7 @@ function withTimeout(promise, ms) {
   ])
 }
 
-function ResultPage({ files = [], nickname, mode, onBack }) {
+function ResultPage({ files = [], nickname, mode, docType, onBack }) {
   const file = files[0]
   const isImage = file?.type.startsWith('image/')
 
@@ -97,12 +69,16 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [maskingNotice, setMaskingNotice] = useState(null)
   const [mappingTable, setMappingTable] = useState([])
+  const [ocrProgressMessage, setOcrProgressMessage] = useState('')
+  const [pageLimitNotice, setPageLimitNotice] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiSummary, setAiSummary] = useState('')
   const [aiError, setAiError] = useState('')
   const [copyLabel, setCopyLabel] = useState('전체 복사')
   const [saveStatus, setSaveStatus] = useState('idle')
   const [docId, setDocId] = useState(null)
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
 
   useEffect(() => {
     if (!file) {
@@ -116,17 +92,26 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
       try {
         setOcrStatus('processing')
         setStageIndex(0)
+        setOcrProgressMessage('')
+        setPageLimitNotice('')
         await delay(300)
         if (cancelled) return
         setStageIndex(1)
-        const text = await extractTextFromFile(file)
+        const text = await extractTextFromFile(file, {
+          onProgress: (message) => {
+            if (!cancelled) setOcrProgressMessage(message)
+          },
+          onNotice: (message) => {
+            if (!cancelled) setPageLimitNotice(message)
+          },
+        })
         if (cancelled) return
+        setOcrProgressMessage('')
         setStageIndex(2)
         const maskingResult = await maskPersonalInfo(text)
         if (cancelled) return
-        const parsedMasking = parseMaskingResult(maskingResult.text)
-        setOcrText(parsedMasking.displayText)
-        setMappingTable(parsedMasking.mappingTable)
+        setOcrText(maskingResult.maskedText)
+        setMappingTable(maskingResult.mappingTable)
         setStageIndex(3)
         await delay(400)
         if (cancelled) return
@@ -154,7 +139,7 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
     let cancelled = false
     async function runAnalysis() {
       try {
-        const summary = await analyzeDocument(ocrText, MODE_TO_FIRESTORE[mode] ?? mode)
+        const summary = await analyzeDocument(ocrText, MODE_TO_FIRESTORE[mode] ?? mode, docType)
         if (cancelled) return
         setAiSummary(summary)
         setAiStatus('done')
@@ -171,7 +156,7 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
     return () => {
       cancelled = true
     }
-  }, [aiStatus, ocrText, mode, docId])
+  }, [aiStatus, ocrText, mode, docType, docId])
 
   useEffect(() => {
     if (!isImage) {
@@ -216,6 +201,51 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
     setAiStatus('loading')
   }
 
+  const handlePdfConfirm = async (selectedSections) => {
+    setPdfGenerating(true)
+    try {
+      const sections = []
+      if (selectedSections.info) {
+        sections.push({
+          type: 'info',
+          title: '문서 정보',
+          items: [
+            ['파일명', file?.name || '파일명 없음'],
+            [
+              '처리 날짜',
+              new Date().toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+            ],
+            ['모드', MODE_LABELS[mode] ?? MODE_LABELS.ocr],
+          ],
+        })
+      }
+      if (selectedSections.text) {
+        sections.push({ type: 'text', title: '추출된 텍스트', content: ocrText })
+      }
+      if (selectedSections.mapping && mappingTable.length > 0) {
+        sections.push({
+          type: 'mapping',
+          title: '인물 매핑표 (교사 확인용)',
+          items: mappingTable,
+        })
+      }
+      if (selectedSections.ai && aiStatus === 'done' && aiSummary) {
+        sections.push({ type: 'ai', title: 'AI 요약·추천', content: aiSummary })
+      }
+
+      await generatePDF(sections, buildPdfFileName())
+    } finally {
+      setPdfGenerating(false)
+      setPdfModalOpen(false)
+    }
+  }
+
   return (
     <div className="result">
       <header className="result-header">
@@ -224,6 +254,20 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
           <span className="nickname-badge">{nickname}님</span>
         </div>
       </header>
+
+      {pageLimitNotice && (
+        <div className="masking-notice error">
+          <span>{pageLimitNotice}</span>
+          <button
+            type="button"
+            className="masking-notice-close"
+            onClick={() => setPageLimitNotice('')}
+            aria-label="안내 닫기"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {maskingNotice && (
         <div className={`masking-notice ${maskingNotice}`}>
@@ -284,6 +328,14 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
               >
                 {SAVE_BUTTON_LABELS[saveStatus]}
               </button>
+              <button
+                type="button"
+                className="text-action-button"
+                onClick={() => setPdfModalOpen(true)}
+                disabled={ocrStatus !== 'done'}
+              >
+                PDF 다운로드
+              </button>
             </div>
           </div>
 
@@ -302,6 +354,9 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
                   )}
                 </span>
               ))}
+              {ocrProgressMessage && (
+                <span className="stage-page-progress">{ocrProgressMessage}</span>
+              )}
             </div>
           ) : (
             <textarea
@@ -316,8 +371,8 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
               <h3>🔒 인물 매핑표 (교사 확인용)</h3>
               <ul className="mapping-table-list">
                 {mappingTable.map((entry) => (
-                  <li key={entry.symbol}>
-                    {entry.symbol}: {entry.name}
+                  <li key={entry.alias}>
+                    {entry.alias}: {entry.name}
                   </li>
                 ))}
               </ul>
@@ -342,12 +397,27 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
             {aiStatus === 'done' && (
               <div className="ai-summary">
                 <h3>AI 요약·추천</h3>
-                <p dangerouslySetInnerHTML={{ __html: formatAiSummary(aiSummary) }} />
+                {parseAiSections(aiSummary).map((section, index) => (
+                  <div className="ai-summary-section" key={section.title}>
+                    {index > 0 && <hr className="ai-summary-divider" />}
+                    <h4>{section.title}</h4>
+                    <p dangerouslySetInnerHTML={{ __html: formatAiSummary(section.content) }} />
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </section>
       </main>
+
+      <PdfSectionModal
+        open={pdfModalOpen}
+        hasMapping={mappingTable.length > 0}
+        hasAi={aiStatus === 'done' && Boolean(aiSummary)}
+        generating={pdfGenerating}
+        onCancel={() => setPdfModalOpen(false)}
+        onConfirm={handlePdfConfirm}
+      />
     </div>
   )
 }

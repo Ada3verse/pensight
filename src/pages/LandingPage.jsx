@@ -47,7 +47,7 @@ const MAX_PIN_ATTEMPTS = 5
 const EMPTY_DIGITS = ['', '', '', '']
 const GENERIC_ERROR_MESSAGE = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
-function LandingPage({ onStart, onViewVault }) {
+function LandingPage({ onStart, onViewVault, onSespec }) {
   const [selectedMode, setSelectedMode] = useState('ocr')
   const [nickname, setNickname] = useState('')
   const [formError, setFormError] = useState('')
@@ -118,6 +118,8 @@ function LandingPage({ onStart, onViewVault }) {
   const handlePinSuccess = () => {
     if (pendingAction === 'vault') {
       onViewVault?.(confirmedNickname)
+    } else if (pendingAction === 'sespec') {
+      onSespec?.(confirmedNickname)
     } else {
       onStart?.({ nickname: confirmedNickname, mode: selectedMode })
     }
@@ -240,6 +242,14 @@ function LandingPage({ onStart, onViewVault }) {
                 disabled={!nickname.trim() || checkingNickname}
               >
                 내 보관함
+              </button>
+              <button
+                type="button"
+                className="vault-button"
+                onClick={() => proceedToPinStep('sespec')}
+                disabled={!nickname.trim() || checkingNickname}
+              >
+                세특 작성
               </button>
             </div>
             {formError && <p className="pin-error">{formError}</p>}
