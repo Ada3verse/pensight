@@ -314,6 +314,32 @@
   border-color: var(--main);
 }
 
+/* Mapping table card */
+.mapping-table-card {
+  padding: 16px 20px;
+  border: 1px solid #f6e29b;
+  border-radius: 14px;
+  background: #fdf7e3;
+}
+
+.mapping-table-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #9a7615;
+  margin: 0 0 10px;
+}
+
+.mapping-table-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: #6b5a17;
+}
+
 /* AI section */
 .ai-section {
   min-height: 40px;

@@ -1,4 +1,4 @@
-const VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate'
+const OCR_FUNCTION_URL = '/.netlify/functions/ocr'
 const PDFJS_SCRIPT_URL =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
 const PDFJS_WORKER_URL =
@@ -65,22 +65,13 @@ async function pdfFileToPageImages(file) {
   return base64Pages
 }
 
-async function callVisionApi(base64Image) {
-  const apiKey = import.meta.env.VITE_VISION_API_KEY
-
+async function callVisionApi(base64Image, mimeType) {
   let response
   try {
-    response = await fetch(`${VISION_API_URL}?key=${apiKey}`, {
+    response = await fetch(OCR_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: { content: base64Image },
-            features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
-          },
-        ],
-      }),
+      body: JSON.stringify({ imageBase64: base64Image, mimeType }),
     })
   } catch {
     throw new OcrError('network', '네트워크 연결을 확인하고 몇 분 후 다시 시도해주세요.')
@@ -91,24 +82,23 @@ async function callVisionApi(base64Image) {
   }
 
   const data = await response.json()
-  const result = data.responses?.[0]
-  if (result?.error) {
+  if (data.error) {
     throw new OcrError('api', 'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
   }
 
-  return result?.fullTextAnnotation?.text ?? ''
+  return data.text ?? ''
 }
 
 async function extractTextFromImage(file) {
   const base64 = await fileToBase64(file)
-  return callVisionApi(base64)
+  return callVisionApi(base64, file.type)
 }
 
 async function extractTextFromPdf(file) {
   const base64Pages = await pdfFileToPageImages(file)
   const pageTexts = []
   for (const base64 of base64Pages) {
-    pageTexts.push(await callVisionApi(base64))
+    pageTexts.push(await callVisionApi(base64, 'image/png'))
   }
   return pageTexts.join('\n\n')
 }

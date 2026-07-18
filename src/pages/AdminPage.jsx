@@ -12,7 +12,11 @@ const MODE_LABELS = {
   ai: 'AI 분석',
 }
 
-const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN
+// 관리자 PIN은 서버(netlify/functions/admin-auth.js)에서 process.env.ADMIN_PIN과
+// 비교합니다. Netlify 환경변수에 VITE_ADMIN_PIN 대신 ADMIN_PIN(VITE_ 접두사 없이)을
+// 등록해야 합니다 — VITE_ 접두사가 붙으면 빌드 시 클라이언트 번들에 노출됩니다.
+const ADMIN_AUTH_URL = '/.netlify/functions/admin-auth'
+const ADMIN_TOKEN_KEY = 'pensight_admin_token'
 const MAX_ATTEMPTS = 5
 const LOCK_DURATION_MS = 30000
 
@@ -50,38 +54,56 @@ function PinScreen({ onSuccess }) {
   const [pin, setPin] = useState('')
   const [attempts, setAttempts] = useState(0)
   const [locked, setLocked] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   const handlePinChange = (event) => {
     setPin(event.target.value.replace(/\D/g, '').slice(0, 4))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    if (locked) return
+    if (locked || submitting) return
 
-    if (pin === ADMIN_PIN) {
-      onSuccess()
-      return
-    }
+    setSubmitting(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch(ADMIN_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+      const data = await response.json().catch(() => null)
 
-    const nextAttempts = attempts + 1
-    setPin('')
+      if (response.ok && data?.success) {
+        sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token)
+        onSuccess()
+        return
+      }
 
-    if (nextAttempts >= MAX_ATTEMPTS) {
-      setAttempts(nextAttempts)
-      setLocked(true)
-      setErrorMessage('잠시 후 다시 시도해주세요.')
-      setTimeout(() => {
-        setLocked(false)
-        setAttempts(0)
-        setErrorMessage('')
-      }, LOCK_DURATION_MS)
-    } else {
-      setAttempts(nextAttempts)
-      setErrorMessage(
-        `PIN이 올바르지 않습니다. (남은 시도: ${MAX_ATTEMPTS - nextAttempts}회)`,
-      )
+      const nextAttempts = attempts + 1
+      setPin('')
+
+      if (nextAttempts >= MAX_ATTEMPTS) {
+        setAttempts(nextAttempts)
+        setLocked(true)
+        setErrorMessage('잠시 후 다시 시도해주세요.')
+        setTimeout(() => {
+          setLocked(false)
+          setAttempts(0)
+          setErrorMessage('')
+        }, LOCK_DURATION_MS)
+      } else {
+        setAttempts(nextAttempts)
+        setErrorMessage(
+          `PIN이 올바르지 않습니다. (남은 시도: ${MAX_ATTEMPTS - nextAttempts}회)`,
+        )
+      }
+    } catch {
+      setPin('')
+      setErrorMessage('인증 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -97,14 +119,14 @@ function PinScreen({ onSuccess }) {
           value={pin}
           onChange={handlePinChange}
           maxLength={4}
-          disabled={locked}
+          disabled={locked || submitting}
           autoFocus
         />
         {errorMessage && <p className="admin-pin-error">{errorMessage}</p>}
         <button
           type="submit"
           className="admin-pin-submit"
-          disabled={locked || pin.length !== 4}
+          disabled={locked || submitting || pin.length !== 4}
         >
           확인
         </button>
@@ -114,7 +136,9 @@ function PinScreen({ onSuccess }) {
 }
 
 function AdminPage() {
-  const [authenticated, setAuthenticated] = useState(false)
+  const [authenticated, setAuthenticated] = useState(
+    () => Boolean(sessionStorage.getItem(ADMIN_TOKEN_KEY)),
+  )
   const [activeTab, setActiveTab] = useState('stats')
   const [documents, setDocuments] = useState([])
   const [nicknameStats, setNicknameStats] = useState([])
@@ -173,6 +197,7 @@ function AdminPage() {
   }
 
   const handleLogout = () => {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY)
     setAuthenticated(false)
     setActiveTab('stats')
     setDocuments([])

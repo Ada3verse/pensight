@@ -43,6 +43,36 @@ const DEFAULT_ERROR_MESSAGE =
 const DEFAULT_AI_ERROR_MESSAGE =
   'AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
+const TEXT_MARKER = '[변환된 텍스트]'
+const MAPPING_MARKER = '[인물 매핑표]'
+
+function parseMaskingResult(rawText) {
+  if (!rawText.includes(TEXT_MARKER)) {
+    return { displayText: rawText, mappingTable: [] }
+  }
+
+  const afterMarker = rawText.slice(rawText.indexOf(TEXT_MARKER) + TEXT_MARKER.length)
+  const mappingIndex = afterMarker.indexOf(MAPPING_MARKER)
+
+  if (mappingIndex === -1) {
+    return { displayText: afterMarker.trim(), mappingTable: [] }
+  }
+
+  const displayText = afterMarker.slice(0, mappingIndex).trim()
+  const mappingTable = afterMarker
+    .slice(mappingIndex + MAPPING_MARKER.length)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [symbol, ...rest] = line.split(':')
+      return { symbol: symbol.trim(), name: rest.join(':').trim() }
+    })
+    .filter((entry) => entry.symbol && entry.name)
+
+  return { displayText, mappingTable }
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -66,6 +96,7 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
   const [ocrText, setOcrText] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [maskingNotice, setMaskingNotice] = useState(null)
+  const [mappingTable, setMappingTable] = useState([])
   const [aiStatus, setAiStatus] = useState('idle')
   const [aiSummary, setAiSummary] = useState('')
   const [aiError, setAiError] = useState('')
@@ -93,7 +124,9 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
         setStageIndex(2)
         const maskingResult = await maskPersonalInfo(text)
         if (cancelled) return
-        setOcrText(maskingResult.text)
+        const parsedMasking = parseMaskingResult(maskingResult.text)
+        setOcrText(parsedMasking.displayText)
+        setMappingTable(parsedMasking.mappingTable)
         setStageIndex(3)
         await delay(400)
         if (cancelled) return
@@ -276,6 +309,19 @@ function ResultPage({ files = [], nickname, mode, onBack }) {
               value={ocrText}
               onChange={handleTextChange}
             />
+          )}
+
+          {ocrStatus === 'done' && mappingTable.length > 0 && (
+            <div className="mapping-table-card">
+              <h3>🔒 인물 매핑표 (교사 확인용)</h3>
+              <ul className="mapping-table-list">
+                {mappingTable.map((entry) => (
+                  <li key={entry.symbol}>
+                    {entry.symbol}: {entry.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <div className="ai-section">
