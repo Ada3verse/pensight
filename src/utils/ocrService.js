@@ -101,21 +101,20 @@ async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
     return callVisionApi(base64, 'image/png')
   }
 
-  if (pagesToProcess === 1) {
-    return renderAndRecognizePage(1)
-  }
-
   const sections = []
   for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber += 1) {
     try {
       const pageText = await renderAndRecognizePage(pageNumber)
-      sections.push(`--- ${pageNumber}페이지 ---\n${pageText}`)
+      sections.push(pageText)
     } catch {
-      sections.push(`--- ${pageNumber}페이지 (인식 실패) ---`)
+      sections.push(`[${pageNumber}페이지 인식 실패]`)
     }
   }
 
-  return sections.join('\n')
+  // 페이지 사이는 문단 구분(빈 줄)만 넣고, 페이지 번호 표시는 넣지 않는다.
+  // 표시를 넣으면 문장이 페이지 경계에서 이어지는 경우 그 표시가 문장
+  // 중간에 끼어들어 텍스트가 부자연스럽게 끊겨 보인다.
+  return sections.join('\n\n')
 }
 
 export async function extractTextFromFile(file, options) {

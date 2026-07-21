@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// PenSight는 Firebase Auth를 사용하지 않고 닉네임 + PIN(클라이언트 비교)만으로 동작한다.
+// request.auth가 없기 때문에 "list(쿼리) 요청"은 문서 필드값만으로는 특정 닉네임에게만
+// 허용하도록 제한할 수 없다 (Firestore는 list 요청 전체를 통과/차단할 뿐, 문서 단위로
+// 걸러내지 않는다 — "rules are not filters"). 따라서 조회 목록(내 보관함, 관리자 전체조회),
+// 수정/삭제 시 닉네임 일치 검증은 전부 서버(netlify/functions, firebase-admin SDK)에서
+// 수행하며, 클라이언트에서 Firestore로 직접 하는 접근은 신규 문서 생성만 허용한다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 닉네임/PIN 확인·등록·초기화·삭제는 모두 서버 함수(auth.js, admin-data.js)를 거친다.
+    // 클라이언트가 Firestore로 users 컬렉션에 직접 접근하는 경로는 없다.
+    match /users/{nickname} {
+      allow read, write: if false;
+    }
+
+    // 생성은 누구나 가능하되 형식을 검증한다.
+    // 조회/수정/삭제는 서버 함수(documents.js)에서 닉네임 일치를 확인한 뒤 처리한다.
+    match /documents/{docId} {
+      allow create: if request.resource.data.nickname is string
+                    && request.resource.data.nickname.size() > 0
+                    && request.resource.data.nickname.size() <= 100
+                    && request.resource.data.mode is string
+                    && request.resource.data.fileName is string
+                    && request.resource.data.extractedText is string
+                    && request.resource.data.aiSummary == null;
+      allow read, update, delete: if false;
+    }
+
+    // 그 외 컬렉션은 전부 차단.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

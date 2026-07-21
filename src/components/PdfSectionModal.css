@@ -103,3 +103,25 @@
   color: #ffffff;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .pdf-modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .pdf-modal-content {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+
+  /* 터치 대상 최소 44px 확보 */
+  .pdf-modal-button {
+    min-height: 44px;
+  }
+
+  .pdf-modal-section-list label {
+    min-height: 44px;
+    padding: 6px 0;
+  }
+}

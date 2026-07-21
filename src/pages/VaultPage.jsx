@@ -17,7 +17,7 @@ const DEFAULT_AI_ERROR_MESSAGE =
   'AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
 function formatDate(timestamp) {
-  const date = timestamp?.toDate ? timestamp.toDate() : null
+  const date = typeof timestamp === 'number' ? new Date(timestamp) : null
   if (!date) return ''
   return date.toLocaleString('ko-KR', {
     year: 'numeric',
@@ -105,7 +105,7 @@ function VaultPage({ nickname, onBack }) {
         ),
       )
       setSelectedDoc((prev) => (prev ? { ...prev, aiSummary: summary } : prev))
-      updateDocument(selectedDoc.id, { aiSummary: summary }).catch(() => {})
+      updateDocument(selectedDoc.id, nickname, { aiSummary: summary }).catch(() => {})
     } catch (err) {
       setAiError(err instanceof AiError ? err.message : DEFAULT_AI_ERROR_MESSAGE)
       setAiStatus('error')
@@ -148,7 +148,7 @@ function VaultPage({ nickname, onBack }) {
   const handleDelete = async () => {
     if (!window.confirm('정말 삭제하시겠습니까?')) return
     try {
-      await deleteDocument(selectedDoc.id)
+      await deleteDocument(selectedDoc.id, nickname)
       setDocuments((prev) => prev.filter((docItem) => docItem.id !== selectedDoc.id))
       closeDoc()
     } catch {

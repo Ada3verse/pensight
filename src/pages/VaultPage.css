@@ -294,6 +294,17 @@
     grid-template-columns: 1fr;
   }
 
+  /* 그리드/플렉스 아이템은 기본값이 min-width:auto라 white-space:nowrap
+     텍스트의 실제 폭만큼 카드가 늘어나 화면 밖으로 넘친다.
+     min-width:0을 줘야 text-overflow:ellipsis가 실제로 동작한다. */
+  .document-card {
+    min-width: 0;
+  }
+
+  .document-filename {
+    min-width: 0;
+  }
+
   .modal-backdrop {
     padding: 0;
   }
@@ -307,5 +318,24 @@
 
   .modal-actions {
     flex-direction: column;
+  }
+
+  /* 터치 대상 최소 44px 확보 */
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-button {
+    min-height: 44px;
   }
 }

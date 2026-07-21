@@ -347,6 +347,51 @@
   color: #6b5a17;
 }
 
+.mapping-table-empty {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: var(--main-light);
+  color: #6b6375;
+  font-size: 13px;
+}
+
+.mapping-table-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid #f3c6c6;
+  border-radius: 10px;
+  background: #fdf1f1;
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mapping-retry-button {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid #b3261e;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #b3261e;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mapping-retry-button:hover {
+  background: #fbe4e4;
+}
+
+.mapping-retry-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* AI section */
 .ai-section {
   min-height: 40px;
@@ -425,6 +470,152 @@
   margin: 14px 0;
 }
 
+/* Violence warning banner */
+.violence-warning-banner {
+  margin: 20px 32px 0;
+  padding: 12px 16px;
+  border: 1px solid #f3c6c6;
+  border-radius: 10px;
+  background: #fdf1f1;
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Mapping table role column (학폭 문서) */
+.mapping-role-badge {
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Incident info card (사건 정보) */
+.incident-info-card {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.incident-info-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--main);
+  margin: 0 0 8px;
+}
+
+.incident-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: #2c2a3a;
+}
+
+/* Role-grouped statements (역할별 진술) */
+.role-statement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.role-statement-item {
+  padding: 10px 14px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.role-badge {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.role-statement-item p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 150%;
+  color: #2c2a3a;
+}
+
+/* Per-person keyword tags (진로 문서) */
+.person-keyword-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.person-keyword-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.person-keyword-alias {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--main);
+}
+
+.person-keyword-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.keyword-tag {
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.keyword-tag.muted {
+  background: #c9c5e0;
+}
+
+/* Sespec CTA */
+.sespec-cta {
+  padding: 0 32px 32px;
+}
+
+.sespec-cta-button {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--main);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.sespec-cta-button:hover {
+  opacity: 0.9;
+}
+
 @media (max-width: 768px) {
   .result-header {
     padding: 16px 20px;
@@ -432,6 +623,10 @@
 
   .masking-notice {
     margin: 16px 20px 0;
+  }
+
+  .sespec-cta {
+    padding: 0 20px 20px;
   }
 
   .result-main {
@@ -473,5 +668,47 @@
 
   .mapping-table-list {
     font-size: 12px;
+  }
+
+  .mapping-table-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 4px;
+  }
+
+  /* 터치 대상 최소 44px 확보 */
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .text-action-button,
+  .save-button {
+    min-height: 44px;
+  }
+
+  .mapping-retry-button {
+    min-height: 44px;
+    padding: 6px 16px;
+  }
+
+  .masking-notice-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 사건 정보 / 역할별 진술 / 인물별 키워드가 좁은 화면에서 겹치지 않게 */
+  .incident-info-list li {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .person-keyword-row {
+    flex-wrap: wrap;
   }
 }

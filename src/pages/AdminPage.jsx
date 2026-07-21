@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  ADMIN_TOKEN_KEY,
   deleteNicknameAndDocuments,
   getAllDocuments,
   getNicknameStats,
@@ -12,11 +13,11 @@ const MODE_LABELS = {
   ai: 'AI 분석',
 }
 
-// 관리자 PIN은 서버(netlify/functions/admin-auth.js)에서 process.env.ADMIN_PIN과
-// 비교합니다. Netlify 환경변수에 VITE_ADMIN_PIN 대신 ADMIN_PIN(VITE_ 접두사 없이)을
-// 등록해야 합니다 — VITE_ 접두사가 붙으면 빌드 시 클라이언트 번들에 노출됩니다.
+// 관리자 PIN은 서버(netlify/functions/admin-auth.js)에서 입력값을 SHA-256으로 해시한 뒤
+// process.env.ADMIN_PIN(해시값)과 비교합니다. Netlify 환경변수에는 평문 PIN이 아니라
+// 해시값을, VITE_ 접두사 없이 ADMIN_PIN으로 등록해야 합니다 — VITE_ 접두사가 붙으면
+// 빌드 시 클라이언트 번들에 노출됩니다.
 const ADMIN_AUTH_URL = '/.netlify/functions/admin-auth'
-const ADMIN_TOKEN_KEY = 'pensight_admin_token'
 const MAX_ATTEMPTS = 5
 const LOCK_DURATION_MS = 30000
 
@@ -28,7 +29,7 @@ const TABS = [
 ]
 
 function formatDate(timestamp) {
-  const date = timestamp?.toDate ? timestamp.toDate() : null
+  const date = typeof timestamp === 'number' ? new Date(timestamp) : null
   if (!date) return ''
   return date.toLocaleString('ko-KR', {
     year: 'numeric',
@@ -40,7 +41,7 @@ function formatDate(timestamp) {
 }
 
 function isToday(timestamp) {
-  const date = timestamp?.toDate ? timestamp.toDate() : null
+  const date = typeof timestamp === 'number' ? new Date(timestamp) : null
   if (!date) return false
   const now = new Date()
   return (

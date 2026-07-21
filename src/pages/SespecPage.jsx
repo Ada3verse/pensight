@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import { generatePDF, buildPdfFileName } from '../utils/pdfService'
+import { validateFiles } from '../utils/fileValidation'
 import './SespecPage.css'
 
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 const MIN_KEYWORDS = 3
 const MAX_KEYWORDS = 10
 const MAX_STUDENTS = 25
@@ -32,13 +32,13 @@ function createStudentItem(file) {
   }
 }
 
-async function requestSespec({ extractedText, commonKeywords, studentAlias }) {
+async function requestSespecBatch(batchStudents, mode) {
   let response
   try {
     response = await fetch(SESPEC_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ extractedText, commonKeywords, studentAlias }),
+      body: JSON.stringify({ students: batchStudents, mode }),
     })
   } catch {
     throw new Error('네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.')
@@ -48,7 +48,7 @@ async function requestSespec({ extractedText, commonKeywords, studentAlias }) {
   if (!response.ok || !data || data.error) {
     throw new Error(data?.error || '세특 생성 중 오류가 발생했습니다.')
   }
-  return data.sespec
+  return data.results
 }
 
 function SespecPage({ nickname, onBack }) {
@@ -61,9 +61,11 @@ function SespecPage({ nickname, onBack }) {
   const [classNumber, setClassNumber] = useState(1)
   const [students, setStudents] = useState([])
   const [isDragging, setIsDragging] = useState(false)
+  const [rejectedFiles, setRejectedFiles] = useState([])
   const inputRef = useRef(null)
 
   const [generating, setGenerating] = useState(false)
+  const [phase, setPhase] = useState('idle')
   const [processingIndex, setProcessingIndex] = useState(-1)
   const [results, setResults] = useState([])
   const [copyLabel, setCopyLabel] = useState('전체 복사')
@@ -96,14 +98,24 @@ function SespecPage({ nickname, onBack }) {
 
   const atStudentCapacity = students.length >= MAX_STUDENTS
 
-  const addStudentFiles = (fileList) => {
-    const accepted = Array.from(fileList).filter((file) => ACCEPTED_TYPES.includes(file.type))
-    if (accepted.length === 0) return
-    setStudents((prev) => {
-      const room = MAX_STUDENTS - prev.length
-      if (room <= 0) return prev
-      return [...prev, ...accepted.slice(0, room).map(createStudentItem)]
-    })
+  const addStudentFiles = async (fileList) => {
+    const existingTotalBytes = students.reduce((sum, item) => sum + item.file.size, 0)
+    const { accepted, rejected } = await validateFiles(fileList, existingTotalBytes)
+
+    const room = MAX_STUDENTS - students.length
+    const toAdd = accepted.slice(0, room)
+    const overCapacity = accepted.slice(room).map((file) => ({
+      name: file.name,
+      message: `최대 인원(${MAX_STUDENTS}명)을 초과해 추가할 수 없습니다.`,
+    }))
+
+    if (toAdd.length > 0) {
+      setStudents((prev) => [...prev, ...toAdd.map(createStudentItem)])
+    }
+    setRejectedFiles([
+      ...rejected.map(({ file, message }) => ({ name: file.name, message })),
+      ...overCapacity,
+    ])
   }
 
   const handleDrop = (event) => {
@@ -125,28 +137,7 @@ function SespecPage({ nickname, onBack }) {
     })
   }
 
-  const commonKeywordsText = `${activityName} - ${keywords.join(', ')}`
-
-  const runStudentPipeline = async (student, alias, cachedText) => {
-    try {
-      const extractedText = cachedText || (await extractTextFromFile(student.file))
-      const sespec = await requestSespec({
-        extractedText,
-        commonKeywords: commonKeywordsText,
-        studentAlias: alias,
-      })
-      return { id: student.id, alias, status: 'done', text: sespec, error: '', extractedText }
-    } catch (err) {
-      return {
-        id: student.id,
-        alias,
-        status: 'error',
-        text: '',
-        error: err instanceof OcrError ? err.message : err.message || '세특 생성에 실패했습니다.',
-        extractedText: cachedText || '',
-      }
-    }
-  }
+  const buildStudentKeywords = () => [activityName, ...keywords]
 
   const handleGenerateStart = async () => {
     setGenerating(true)
@@ -159,16 +150,78 @@ function SespecPage({ nickname, onBack }) {
         text: '',
         error: '',
         extractedText: '',
+        forbiddenWords: [],
       })),
     )
 
+    setPhase('ocr')
+    const ocrOutcomes = []
     for (let index = 0; index < students.length; index += 1) {
       setProcessingIndex(index)
-      const result = await runStudentPipeline(students[index], aliases[index])
-      setResults((prev) => prev.map((item) => (item.id === result.id ? result : item)))
+      const student = students[index]
+      const alias = aliases[index]
+      try {
+        const extractedText = await extractTextFromFile(student.file)
+        ocrOutcomes.push({ id: student.id, alias, extractedText, failed: false })
+      } catch (err) {
+        ocrOutcomes.push({
+          id: student.id,
+          alias,
+          extractedText: '',
+          failed: true,
+          error: err instanceof OcrError ? err.message : 'OCR 처리에 실패했습니다.',
+        })
+      }
+    }
+    setProcessingIndex(-1)
+
+    setResults((prev) =>
+      prev.map((item) => {
+        const outcome = ocrOutcomes.find((entry) => entry.id === item.id)
+        if (!outcome) return item
+        if (outcome.failed) {
+          return { ...item, status: 'error', error: outcome.error }
+        }
+        return { ...item, extractedText: outcome.extractedText }
+      }),
+    )
+
+    const batchStudents = ocrOutcomes
+      .filter((entry) => !entry.failed)
+      .map((entry) => ({
+        alias: entry.alias,
+        extractedText: entry.extractedText,
+        keywords: buildStudentKeywords(),
+      }))
+
+    if (batchStudents.length > 0) {
+      setPhase('ai')
+      try {
+        const batchResults = await requestSespecBatch(batchStudents, 'subject')
+        setResults((prev) =>
+          prev.map((item) => {
+            const match = batchResults.find((entry) => entry.alias === item.alias)
+            if (!match) return item
+            return {
+              ...item,
+              status: 'done',
+              text: match.sespec,
+              forbiddenWords: match.forbiddenWords || [],
+            }
+          }),
+        )
+      } catch {
+        setResults((prev) =>
+          prev.map((item) =>
+            batchStudents.some((entry) => entry.alias === item.alias)
+              ? { ...item, status: 'error', error: '세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.' }
+              : item,
+          ),
+        )
+      }
     }
 
-    setProcessingIndex(-1)
+    setPhase('idle')
     setGenerating(false)
     setStep(4)
   }
@@ -179,8 +232,41 @@ function SespecPage({ nickname, onBack }) {
     if (index === -1 || !existing) return
 
     setResults((prev) => prev.map((item) => (item.id === id ? { ...item, status: 'pending' } : item)))
-    const result = await runStudentPipeline(students[index], existing.alias, existing.extractedText)
-    setResults((prev) => prev.map((item) => (item.id === id ? result : item)))
+
+    try {
+      const extractedText = existing.extractedText || (await extractTextFromFile(students[index].file))
+      const batchResults = await requestSespecBatch(
+        [{ alias: existing.alias, extractedText, keywords: buildStudentKeywords() }],
+        'subject',
+      )
+      const match = batchResults[0]
+      setResults((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: 'done',
+                text: match?.sespec ?? '',
+                forbiddenWords: match?.forbiddenWords ?? [],
+                extractedText,
+                error: '',
+              }
+            : item,
+        ),
+      )
+    } catch (err) {
+      setResults((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: 'error',
+                error: err instanceof OcrError ? err.message : '세특 재생성에 실패했습니다. 다시 시도해주세요.',
+              }
+            : item,
+        ),
+      )
+    }
   }
 
   const handleResultTextChange = (id, value) => {
@@ -352,6 +438,19 @@ function SespecPage({ nickname, onBack }) {
               <p className="sespec-capacity-hint">최대 인원({MAX_STUDENTS}명)에 도달했습니다.</p>
             )}
 
+            {rejectedFiles.length > 0 && (
+              <div className="sespec-rejected-notice">
+                <p className="sespec-rejected-notice-title">
+                  {rejectedFiles.length}개 파일을 추가하지 못했습니다
+                </p>
+                {rejectedFiles.map((item, index) => (
+                  <p className="sespec-rejected-notice-item" key={`${item.name}-${index}`}>
+                    {item.name}: {item.message}
+                  </p>
+                ))}
+              </div>
+            )}
+
             {students.length > 0 && (
               <ul className="sespec-student-list">
                 {students.map((student, index) => (
@@ -435,9 +534,11 @@ function SespecPage({ nickname, onBack }) {
             ) : (
               <>
                 <p className="sespec-progress-text">
-                  {processingIndex >= 0
+                  {phase === 'ocr' && processingIndex >= 0
                     ? `${classNumber}반 '${getAliasSymbol(processingIndex)}' 처리 중... (${processingIndex + 1}/${students.length})`
-                    : '처리를 마무리하고 있습니다...'}
+                    : phase === 'ai'
+                      ? '전체 학생 세특을 함께 생성하고 있습니다...'
+                      : '처리를 마무리하고 있습니다...'}
                 </p>
                 <ul className="sespec-progress-list">
                   {results.map((item) => (
@@ -496,11 +597,18 @@ function SespecPage({ nickname, onBack }) {
                   {item.status === 'error' ? (
                     <p className="sespec-card-error">{item.error}</p>
                   ) : (
-                    <textarea
-                      className="sespec-card-textarea"
-                      value={item.text}
-                      onChange={(event) => handleResultTextChange(item.id, event.target.value)}
-                    />
+                    <>
+                      {item.forbiddenWords?.length > 0 && (
+                        <p className="sespec-card-warning">
+                          ⚠️ 금지어 포함: {item.forbiddenWords.join(', ')}
+                        </p>
+                      )}
+                      <textarea
+                        className="sespec-card-textarea"
+                        value={item.text}
+                        onChange={(event) => handleResultTextChange(item.id, event.target.value)}
+                      />
+                    </>
                   )}
                 </div>
               ))}

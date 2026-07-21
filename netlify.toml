@@ -2,3 +2,24 @@
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # 코드베이스에서 실제로 사용하는 외부 도메인만 허용한다.
+    # - script-src/worker-src: OCR용 PDF 렌더링에 쓰는 pdf.js를 cdnjs에서 동적으로 불러옴
+    #   (src/utils/ocrService.js). 일부 PDF는 pdf.js 내부에서 이미지 코덱 처리를 위해
+    #   WebAssembly를 로드할 수 있어 wasm-unsafe-eval을 허용한다.
+    # - connect-src: Firestore 문서 생성(create)만 브라우저에서 firestore.googleapis.com으로
+    #   직접 통신한다(그 외 조회/수정/삭제는 Netlify Functions를 통해 서버에서 처리).
+    #   Vision API·Anthropic API는 브라우저가 아니라 Netlify Functions에서만 호출하므로
+    #   포함하지 않는다.
+    # - style-src: PDF 생성(src/utils/pdfService.js)이 인라인 style 속성이 포함된 HTML을
+    #   동적으로 그려 넣으므로 unsafe-inline이 필요하다.
+    # - img-src: 업로드 파일 미리보기가 blob: URL을 사용한다.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com 'wasm-unsafe-eval'; worker-src 'self' https://cdnjs.cloudflare.com blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; font-src 'self'; connect-src 'self' https://firestore.googleapis.com https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"

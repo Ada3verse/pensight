@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
+import { validateFiles } from '../utils/fileValidation'
 import './UploadPage.css'
 
 const MODE_LABELS = {
   ocr: '빠른 OCR',
   ai: 'AI 분석',
+  sespec: '세특 생성',
 }
-
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 
 const DOC_TYPES = [
   { id: 'violence', label: '학교폭력 진술서', icon: '🛡️' },
@@ -30,14 +30,17 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
   const [files, setFiles] = useState([])
   const [isDragging, setIsDragging] = useState(false)
   const [docType, setDocType] = useState(DEFAULT_DOC_TYPE)
+  const [rejectedFiles, setRejectedFiles] = useState([])
   const inputRef = useRef(null)
 
-  const addFiles = (fileList) => {
-    const accepted = Array.from(fileList).filter((file) =>
-      ACCEPTED_TYPES.includes(file.type),
-    )
-    if (accepted.length === 0) return
-    setFiles((prev) => [...prev, ...accepted.map(createFileItem)])
+  const addFiles = async (fileList) => {
+    const existingTotalBytes = files.reduce((sum, item) => sum + item.file.size, 0)
+    const { accepted, rejected } = await validateFiles(fileList, existingTotalBytes)
+
+    if (accepted.length > 0) {
+      setFiles((prev) => [...prev, ...accepted.map(createFileItem)])
+    }
+    setRejectedFiles(rejected.map(({ file, message }) => ({ name: file.name, message })))
   }
 
   const handleDrop = (event) => {
@@ -118,6 +121,19 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
           />
         </div>
 
+        {rejectedFiles.length > 0 && (
+          <div className="rejected-file-notice">
+            <p className="rejected-file-notice-title">
+              {rejectedFiles.length}개 파일을 추가하지 못했습니다
+            </p>
+            {rejectedFiles.map((item, index) => (
+              <p className="rejected-file-item" key={`${item.name}-${index}`}>
+                {item.name}: {item.message}
+              </p>
+            ))}
+          </div>
+        )}
+
         {files.length > 0 && (
           <ul className="file-list">
             {files.map((item) => (
@@ -143,6 +159,10 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
               </li>
             ))}
           </ul>
+        )}
+
+        {mode === 'sespec' && files.length > 0 && (
+          <p className="sespec-order-hint">파일 순서가 학생 순서가 됩니다.</p>
         )}
 
         <p className="masking-note">

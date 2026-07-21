@@ -1,3 +1,13 @@
+/* PC 레이아웃에는 영향이 없고(명시적 width가 없으면 계산이 동일함),
+   padding/border가 있는 요소가 flex/grid stretch로 부모 너비를 꽉 채울 때
+   padding·border만큼 초과되어 모바일 좁은 화면에서 가로 스크롤/잘림이
+   생기는 문제를 근본적으로 막기 위한 전역 리셋. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

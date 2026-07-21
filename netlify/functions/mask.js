@@ -36,44 +36,52 @@ function jsonResponse(statusCode, body) {
 }
 
 export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return jsonResponse(405, { error: 'Method Not Allowed' })
-  }
-
-  let payload
   try {
-    payload = JSON.parse(event.body || '{}')
-  } catch {
-    return jsonResponse(400, { error: '잘못된 요청입니다.' })
+    if (event.httpMethod !== 'POST') {
+      return jsonResponse(405, { error: 'Method Not Allowed' })
+    }
+
+    let payload
+    try {
+      payload = JSON.parse(event.body || '{}')
+    } catch {
+      return jsonResponse(400, { error: '잘못된 요청입니다.' })
+    }
+
+    const { text } = payload
+    if (!text) {
+      return jsonResponse(200, { text: text ?? '', success: false })
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      console.error('[mask] ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+      return jsonResponse(200, { text, success: false })
+    }
+
+    const client = new Anthropic({ apiKey })
+
+    let response
+    try {
+      response = await client.messages.create({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        messages: [{ role: 'user', content: buildPrompt(text) }],
+      })
+    } catch (err) {
+      console.error('[mask] Anthropic API 호출 실패', err)
+      return jsonResponse(200, { text, success: false })
+    }
+
+    const textBlock = response.content.find((block) => block.type === 'text')
+    if (!textBlock) {
+      console.error('[mask] Anthropic 응답에 text 블록이 없음', response)
+      return jsonResponse(200, { text, success: false })
+    }
+
+    return jsonResponse(200, { text: textBlock.text, success: true })
+  } catch (err) {
+    console.error('[mask] 처리되지 않은 오류', err)
+    return jsonResponse(200, { text: '', success: false })
   }
-
-  const { text } = payload
-  if (!text) {
-    return jsonResponse(200, { text: text ?? '', success: false })
-  }
-
-  const apiKey = process.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return jsonResponse(500, { error: '마스킹 API 키가 설정되지 않았습니다.' })
-  }
-
-  const client = new Anthropic({ apiKey })
-
-  let response
-  try {
-    response = await client.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      messages: [{ role: 'user', content: buildPrompt(text) }],
-    })
-  } catch {
-    return jsonResponse(502, { error: '마스킹 처리 중 오류가 발생했습니다.' })
-  }
-
-  const textBlock = response.content.find((block) => block.type === 'text')
-  if (!textBlock) {
-    return jsonResponse(502, { error: '마스킹 처리 중 오류가 발생했습니다.' })
-  }
-
-  return jsonResponse(200, { text: textBlock.text, success: true })
 }

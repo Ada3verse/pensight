@@ -5,8 +5,9 @@ import ResultPage from './pages/ResultPage'
 import VaultPage from './pages/VaultPage'
 import AdminPage from './pages/AdminPage'
 import SespecPage from './pages/SespecPage'
+import SespecGenPage from './pages/SespecGenPage'
 
-const PROTECTED_PAGES = ['upload', 'result', 'vault', 'sespec']
+const PROTECTED_PAGES = ['upload', 'result', 'vault', 'sespec', 'sespec-generate']
 
 function App() {
   const [page, setPage] = useState('landing')
@@ -16,6 +17,7 @@ function App() {
   const [docType, setDocType] = useState('general')
   const [pinAuthenticated, setPinAuthenticated] = useState(false)
   const [hash, setHash] = useState(() => window.location.hash)
+  const [sespecInitialText, setSespecInitialText] = useState('')
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash)
@@ -45,7 +47,17 @@ function App() {
   const handleAnalyze = (selectedFiles, selectedDocType) => {
     setFiles(selectedFiles)
     setDocType(selectedDocType)
-    setPage('result')
+    if (mode === 'sespec') {
+      setSespecInitialText('')
+      setPage('sespec-generate')
+    } else {
+      setPage('result')
+    }
+  }
+
+  const handleSespecGenerate = (rawText) => {
+    setSespecInitialText(rawText)
+    setPage('sespec-generate')
   }
 
   const returnToLanding = () => {
@@ -79,6 +91,7 @@ function App() {
         mode={mode}
         docType={docType}
         onBack={() => setPage('upload')}
+        onSespecGenerate={handleSespecGenerate}
       />
     )
   }
@@ -96,6 +109,17 @@ function App() {
 
   if (page === 'sespec') {
     return <SespecPage nickname={nickname} onBack={returnToLanding} />
+  }
+
+  if (page === 'sespec-generate') {
+    return (
+      <SespecGenPage
+        nickname={nickname}
+        initialRawText={sespecInitialText}
+        files={mode === 'sespec' ? files : []}
+        onBack={() => setPage(mode === 'sespec' ? 'upload' : 'result')}
+      />
+    )
   }
 
   return (

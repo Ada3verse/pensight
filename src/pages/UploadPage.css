@@ -148,6 +148,29 @@
   cursor: pointer;
 }
 
+/* Rejected file notice */
+.rejected-file-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #f3c6c6;
+  border-radius: 10px;
+  background: #fdf1f1;
+}
+
+.rejected-file-notice-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b3261e;
+  margin: 0;
+}
+
+.rejected-file-item {
+  font-size: 13px;
+  color: #8c2f2a;
+}
+
 /* File list */
 .file-list {
   display: flex;
@@ -220,6 +243,14 @@
   text-align: center;
 }
 
+.sespec-order-hint {
+  font-size: 13px;
+  color: #534ab7;
+  font-weight: 600;
+  line-height: 150%;
+  text-align: center;
+}
+
 /* Analyze button */
 .analyze-button {
   padding: 14px 24px;
@@ -261,5 +292,26 @@
 
   .analyze-button {
     width: 100%;
+  }
+
+  /* 터치 대상 최소 44px 확보 */
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .file-remove {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* flex 아이템 기본값(min-width:auto)이 nowrap 텍스트의 실제 폭만큼
+     늘어나 화면 밖으로 넘치는 것을 막는다 (text-overflow:ellipsis 활성화). */
+  .file-name {
+    min-width: 0;
   }
 }

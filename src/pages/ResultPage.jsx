@@ -3,7 +3,12 @@ import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import { analyzeDocument, AiError } from '../utils/aiService'
 import { maskPersonalInfo } from '../utils/maskingService'
 import { saveDocument, updateDocument } from '../utils/firestoreService'
-import { formatAiSummary, parseAiSections } from '../utils/textFormat'
+import {
+  formatAiSummary,
+  parseAiSections,
+  parseCareerAnalysis,
+  parseViolenceAnalysis,
+} from '../utils/textFormat'
 import { generatePDF, buildPdfFileName } from '../utils/pdfService'
 import PdfSectionModal from '../components/PdfSectionModal'
 import './ResultPage.css'
@@ -11,6 +16,7 @@ import './ResultPage.css'
 const MODE_LABELS = {
   ocr: '빠른 OCR',
   ai: 'AI 분석',
+  sespec: '세특 생성',
 }
 
 const MODE_TO_FIRESTORE = {
@@ -39,6 +45,11 @@ const MASKING_NOTICE_MESSAGES = {
   error: '개인정보 자동 마스킹에 실패했습니다. 업로드 전 민감 정보를 직접 확인하고 수정해주세요.',
 }
 
+const MAPPING_EMPTY_MESSAGE = '분석된 인물 정보가 없습니다.'
+const MAPPING_ERROR_MESSAGE = '매핑표를 불러오지 못했습니다. 다시 시도해주세요.'
+
+const VIOLENCE_WARNING_MESSAGE = '⚠️ 이 문서는 외부에 공유하지 마세요.'
+
 const DEFAULT_ERROR_MESSAGE =
   'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
@@ -58,7 +69,7 @@ function withTimeout(promise, ms) {
   ])
 }
 
-function ResultPage({ files = [], nickname, mode, docType, onBack }) {
+function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGenerate }) {
   const file = files[0]
   const isImage = file?.type.startsWith('image/')
 
@@ -69,6 +80,8 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
   const [errorMessage, setErrorMessage] = useState('')
   const [maskingNotice, setMaskingNotice] = useState(null)
   const [mappingTable, setMappingTable] = useState([])
+  const [mappingStatus, setMappingStatus] = useState('empty')
+  const [retryingMapping, setRetryingMapping] = useState(false)
   const [ocrProgressMessage, setOcrProgressMessage] = useState('')
   const [pageLimitNotice, setPageLimitNotice] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
@@ -112,6 +125,7 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
         if (cancelled) return
         setOcrText(maskingResult.maskedText)
         setMappingTable(maskingResult.mappingTable)
+        setMappingStatus(maskingResult.mappingStatus)
         setStageIndex(3)
         await delay(400)
         if (cancelled) return
@@ -139,12 +153,13 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
     let cancelled = false
     async function runAnalysis() {
       try {
-        const summary = await analyzeDocument(ocrText, MODE_TO_FIRESTORE[mode] ?? mode, docType)
+        const aliases = mappingTable.map((entry) => entry.alias)
+        const summary = await analyzeDocument(ocrText, MODE_TO_FIRESTORE[mode] ?? mode, docType, aliases)
         if (cancelled) return
         setAiSummary(summary)
         setAiStatus('done')
         if (docId) {
-          updateDocument(docId, { aiSummary: summary }).catch(() => {})
+          updateDocument(docId, nickname, { aiSummary: summary }).catch(() => {})
         }
       } catch (err) {
         if (cancelled) return
@@ -156,7 +171,7 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
     return () => {
       cancelled = true
     }
-  }, [aiStatus, ocrText, mode, docType, docId])
+  }, [aiStatus, ocrText, mode, docType, docId, nickname, mappingTable])
 
   useEffect(() => {
     if (!isImage) {
@@ -199,6 +214,32 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
 
   const handleStartAi = () => {
     setAiStatus('loading')
+  }
+
+  const handleRetryMapping = async () => {
+    setRetryingMapping(true)
+    try {
+      const maskingResult = await maskPersonalInfo(ocrText)
+      setOcrText(maskingResult.maskedText)
+      setMappingTable(maskingResult.mappingTable)
+      setMappingStatus(maskingResult.mappingStatus)
+      setMaskingNotice(maskingResult.success ? 'success' : 'error')
+    } finally {
+      setRetryingMapping(false)
+    }
+  }
+
+  const showSespecCta =
+    ocrStatus === 'done' && docType !== 'career' && (mode === 'sespec' || docType === 'assignment')
+
+  const violenceAnalysis =
+    aiStatus === 'done' && docType === 'violence' ? parseViolenceAnalysis(aiSummary) : null
+  const careerAnalysis =
+    aiStatus === 'done' && docType === 'career' ? parseCareerAnalysis(aiSummary) : null
+  const roleByAlias = new Map((violenceAnalysis?.roles ?? []).map((entry) => [entry.alias, entry.role]))
+
+  const handleSespecGenerate = () => {
+    onSespecGenerate?.(ocrText)
   }
 
   const handlePdfConfirm = async (selectedSections) => {
@@ -254,6 +295,10 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
           <span className="nickname-badge">{nickname}님</span>
         </div>
       </header>
+
+      {docType === 'violence' && (
+        <div className="violence-warning-banner">{VIOLENCE_WARNING_MESSAGE}</div>
+      )}
 
       {pageLimitNotice && (
         <div className="masking-notice error">
@@ -366,16 +411,37 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
             />
           )}
 
-          {ocrStatus === 'done' && mappingTable.length > 0 && (
+          {ocrStatus === 'done' && mappingStatus === 'success' && (
             <div className="mapping-table-card">
               <h3>🔒 인물 매핑표 (교사 확인용)</h3>
               <ul className="mapping-table-list">
-                {mappingTable.map((entry) => (
-                  <li key={entry.alias}>
+                {mappingTable.map((entry, index) => (
+                  <li key={`${entry.alias}-${index}`}>
                     {entry.alias}: {entry.name}
+                    {docType === 'violence' && (
+                      <span className="mapping-role-badge">{roleByAlias.get(entry.alias) ?? '-'}</span>
+                    )}
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {ocrStatus === 'done' && mappingStatus === 'empty' && (
+            <p className="mapping-table-empty">{MAPPING_EMPTY_MESSAGE}</p>
+          )}
+
+          {ocrStatus === 'done' && mappingStatus === 'error' && (
+            <div className="mapping-table-error">
+              <span>{MAPPING_ERROR_MESSAGE}</span>
+              <button
+                type="button"
+                className="mapping-retry-button"
+                onClick={handleRetryMapping}
+                disabled={retryingMapping}
+              >
+                {retryingMapping ? '재시도 중...' : '다시 시도'}
+              </button>
             </div>
           )}
 
@@ -394,7 +460,99 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
               <p className="ai-loading">AI가 내용을 분석하고 있습니다...</p>
             )}
             {aiStatus === 'error' && <div className="ai-error">{aiError}</div>}
-            {aiStatus === 'done' && (
+            {aiStatus === 'done' && docType === 'violence' && violenceAnalysis && (
+              <div className="ai-summary">
+                <h3>AI 분석 결과</h3>
+                {violenceAnalysis.summary && (
+                  <p dangerouslySetInnerHTML={{ __html: formatAiSummary(violenceAnalysis.summary) }} />
+                )}
+
+                {violenceAnalysis.incidentInfo.length > 0 && (
+                  <div className="incident-info-card">
+                    <h4>사건 정보</h4>
+                    <ul className="incident-info-list">
+                      {violenceAnalysis.incidentInfo.map((item, index) => (
+                        <li key={`${item.label}-${index}`}>
+                          <strong>{item.label}</strong>: {item.value}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {violenceAnalysis.statements.length > 0 && (
+                  <div className="role-statement-list">
+                    {violenceAnalysis.statements.map((item, index) => (
+                      <div className="role-statement-item" key={`${item.role}-${index}`}>
+                        <span className="role-badge">{item.role}</span>
+                        <p dangerouslySetInnerHTML={{ __html: formatAiSummary(item.statement) }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {[
+                  { title: '사건 유형', content: violenceAnalysis.incidentType },
+                  { title: '주요 키워드', content: violenceAnalysis.keywords },
+                ]
+                  .filter((section) => section.content)
+                  .map((section) => (
+                    <div className="ai-summary-section" key={section.title}>
+                      <hr className="ai-summary-divider" />
+                      <h4>{section.title}</h4>
+                      <p dangerouslySetInnerHTML={{ __html: formatAiSummary(section.content) }} />
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {aiStatus === 'done' && docType === 'career' && careerAnalysis && (
+              <div className="ai-summary">
+                <h3>AI 분석 결과</h3>
+                {careerAnalysis.summary && (
+                  <p dangerouslySetInnerHTML={{ __html: formatAiSummary(careerAnalysis.summary) }} />
+                )}
+
+                {careerAnalysis.personKeywords.length > 0 && (
+                  <div className="person-keyword-list">
+                    {careerAnalysis.personKeywords.map((person, index) => (
+                      <div className="person-keyword-row" key={`${person.alias}-${index}`}>
+                        <span className="person-keyword-alias">{person.alias}</span>
+                        <div className="person-keyword-tags">
+                          {person.tags.length > 0 ? (
+                            person.tags.map((tag, tagIndex) => (
+                              <span className="keyword-tag" key={`${tag}-${tagIndex}`}>
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="keyword-tag muted">-</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {[
+                  { title: '관심 직업', content: careerAnalysis.interestJob },
+                  { title: '강점', content: careerAnalysis.strengths },
+                  { title: '보완점', content: careerAnalysis.improvements },
+                  { title: '희망 진로 분야', content: careerAnalysis.desiredField },
+                  { title: '주요 키워드', content: careerAnalysis.keywords },
+                ]
+                  .filter((section) => section.content)
+                  .map((section, index) => (
+                    <div className="ai-summary-section" key={section.title}>
+                      {index > 0 && <hr className="ai-summary-divider" />}
+                      <h4>{section.title}</h4>
+                      <p dangerouslySetInnerHTML={{ __html: formatAiSummary(section.content) }} />
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {aiStatus === 'done' && docType !== 'violence' && docType !== 'career' && (
               <div className="ai-summary">
                 <h3>AI 요약·추천</h3>
                 {parseAiSections(aiSummary).map((section, index) => (
@@ -409,6 +567,14 @@ function ResultPage({ files = [], nickname, mode, docType, onBack }) {
           </div>
         </section>
       </main>
+
+      {showSespecCta && (
+        <div className="sespec-cta">
+          <button type="button" className="sespec-cta-button" onClick={handleSespecGenerate}>
+            세특 생성하기
+          </button>
+        </div>
+      )}
 
       <PdfSectionModal
         open={pdfModalOpen}

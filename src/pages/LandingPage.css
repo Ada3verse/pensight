@@ -355,4 +355,17 @@
   .vault-button {
     width: 100%;
   }
+
+  /* 터치 대상 최소 44px 확보 */
+  .nickname-input,
+  .start-button,
+  .vault-button {
+    min-height: 44px;
+  }
+
+  .pin-back-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }

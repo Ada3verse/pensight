@@ -33,6 +33,11 @@ const MODES = [
     label: 'AI 분석',
     description: '텍스트 추출부터 요약·추천까지 진행합니다.',
   },
+  {
+    id: 'sespec',
+    label: '세특 생성',
+    description: '텍스트 추출부터 세특 초안 생성까지 진행합니다.',
+  },
 ]
 
 const STEPS = [

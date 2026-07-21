@@ -1,27 +1,46 @@
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from 'firebase/firestore'
-import { hashPin, verifyPin } from './pinService'
 
 const COLLECTION_NAME = 'documents'
-const USERS_COLLECTION_NAME = 'users'
+
+export const ADMIN_TOKEN_KEY = 'pensight_admin_token'
+
+const AUTH_URL = '/.netlify/functions/auth'
+const DOCUMENTS_URL = '/.netlify/functions/documents'
+const ADMIN_DATA_URL = '/.netlify/functions/admin-data'
 
 export class PinMismatchError extends Error {
   constructor(message) {
     super(message)
     this.name = 'PinMismatchError'
   }
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(data?.error || '요청이 실패했습니다.')
+  return data
+}
+
+function adminAuthHeaders() {
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY)
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` }
+}
+
+async function postAdmin(action, extra = {}) {
+  const response = await fetch(ADMIN_DATA_URL, {
+    method: 'POST',
+    headers: adminAuthHeaders(),
+    body: JSON.stringify({ action, ...extra }),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(data?.error || '요청이 실패했습니다.')
+  return data
 }
 
 export async function saveDocument(nickname, mode, fileName, extractedText) {
@@ -38,93 +57,68 @@ export async function saveDocument(nickname, mode, fileName, extractedText) {
 }
 
 export async function getDocuments(nickname) {
-  const snapshot = await getDocs(
-    query(collection(db, COLLECTION_NAME), where('nickname', '==', nickname)),
-  )
-  const docs = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-  return docs.sort(
-    (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-  )
+  const response = await fetch(`${DOCUMENTS_URL}?nickname=${encodeURIComponent(nickname)}`)
+  const data = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(data?.error || '문서를 불러오지 못했습니다.')
+  return data.documents
 }
 
-export async function deleteDocument(docId) {
-  await deleteDoc(doc(db, COLLECTION_NAME, docId))
-}
-
-export async function updateDocument(docId, data) {
-  await updateDoc(doc(db, COLLECTION_NAME, docId), {
-    ...data,
-    updatedAt: serverTimestamp(),
+export async function deleteDocument(docId, nickname) {
+  const response = await fetch(DOCUMENTS_URL, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ docId, nickname }),
   })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.error || '삭제에 실패했습니다.')
+  }
+}
+
+export async function updateDocument(docId, nickname, data) {
+  const response = await fetch(DOCUMENTS_URL, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ docId, nickname, data }),
+  })
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => null)
+    throw new Error(errBody?.error || '수정에 실패했습니다.')
+  }
 }
 
 export async function getAllDocuments() {
-  const snapshot = await getDocs(collection(db, COLLECTION_NAME))
-  const docs = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-  return docs.sort(
-    (a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0),
-  )
+  const { documents } = await postAdmin('listAll')
+  return documents
 }
 
 export async function getNicknameStats() {
-  const docs = await getAllDocuments()
-  const counts = new Map()
-  for (const docItem of docs) {
-    counts.set(docItem.nickname, (counts.get(docItem.nickname) ?? 0) + 1)
-  }
-  return Array.from(counts.entries())
-    .map(([nickname, count]) => ({ nickname, count }))
-    .sort((a, b) => b.count - a.count)
+  const { stats } = await postAdmin('listAll')
+  return stats
 }
 
 export async function resetNicknamePin(nickname) {
-  const userRef = doc(db, USERS_COLLECTION_NAME, nickname)
-  await setDoc(userRef, { pin: null, updatedAt: serverTimestamp() }, { merge: true })
-}
-
-export async function checkNicknameExists(nickname) {
-  const userSnap = await getDoc(doc(db, USERS_COLLECTION_NAME, nickname))
-  return userSnap.exists() && Boolean(userSnap.data().pin)
-}
-
-export async function saveUserPin(nickname, pin) {
-  const userRef = doc(db, USERS_COLLECTION_NAME, nickname)
-  const userSnap = await getDoc(userRef)
-  const hashedPin = await hashPin(pin)
-  const existingPin = userSnap.exists() ? userSnap.data().pin : null
-
-  if (existingPin) {
-    if (existingPin !== hashedPin) {
-      throw new PinMismatchError('PIN이 일치하지 않습니다.')
-    }
-    return
-  }
-
-  await setDoc(
-    userRef,
-    {
-      nickname,
-      pin: hashedPin,
-      createdAt: userSnap.exists() ? userSnap.data().createdAt : serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  )
-}
-
-export async function verifyUserPin(nickname, pin) {
-  const userSnap = await getDoc(doc(db, USERS_COLLECTION_NAME, nickname))
-  if (!userSnap.exists()) return false
-  return verifyPin(pin, userSnap.data().pin)
+  await postAdmin('resetPin', { nickname })
 }
 
 export async function deleteNicknameAndDocuments(nickname) {
-  const snapshot = await getDocs(
-    query(collection(db, COLLECTION_NAME), where('nickname', '==', nickname)),
-  )
-  await Promise.all([
-    deleteDoc(doc(db, USERS_COLLECTION_NAME, nickname)),
-    ...snapshot.docs.map((docSnap) => deleteDoc(doc(db, COLLECTION_NAME, docSnap.id))),
-  ])
+  await postAdmin('deleteNickname', { nickname })
   return true
+}
+
+export async function checkNicknameExists(nickname) {
+  const { exists } = await postJson(AUTH_URL, { action: 'checkExists', nickname })
+  return exists
+}
+
+export async function saveUserPin(nickname, pin) {
+  const result = await postJson(AUTH_URL, { action: 'register', nickname, pin })
+  if (!result.success) {
+    throw new PinMismatchError('PIN이 일치하지 않습니다.')
+  }
+}
+
+export async function verifyUserPin(nickname, pin) {
+  const { ok } = await postJson(AUTH_URL, { action: 'verify', nickname, pin })
+  return ok
 }

@@ -468,4 +468,29 @@
   .admin-list-actions {
     flex-direction: column;
   }
+
+  /* 터치 대상 최소 44px 확보 */
+  .admin-tab {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .admin-logout-button,
+  .admin-reset-button,
+  .admin-delete-button {
+    min-height: 44px;
+  }
+
+  .admin-modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .admin-pin-submit {
+    min-height: 44px;
+  }
 }
