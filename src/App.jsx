@@ -6,10 +6,14 @@ import VaultPage from './pages/VaultPage'
 import AdminPage from './pages/AdminPage'
 import SespecPage from './pages/SespecPage'
 import SespecGenPage from './pages/SespecGenPage'
+import ToastHost from './components/ToastHost'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
+import { clearSessionToken, SESSION_EXPIRED_EVENT, SESSION_EXPIRED_MESSAGE } from './utils/session'
 
 const PROTECTED_PAGES = ['upload', 'result', 'vault', 'sespec', 'sespec-generate']
 
-function App() {
+function AppRoutes() {
   const [page, setPage] = useState('landing')
   const [nickname, setNickname] = useState('')
   const [mode, setMode] = useState('ocr')
@@ -18,6 +22,7 @@ function App() {
   const [pinAuthenticated, setPinAuthenticated] = useState(false)
   const [hash, setHash] = useState(() => window.location.hash)
   const [sespecInitialText, setSespecInitialText] = useState('')
+  const [sessionNotice, setSessionNotice] = useState('')
 
   useEffect(() => {
     const handleHashChange = () => setHash(window.location.hash)
@@ -25,7 +30,19 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  // 서버가 세션 토큰을 거부(401)하면 로그인 화면으로 돌려보내고 안내한다.
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setPinAuthenticated(false)
+      setPage('landing')
+      setSessionNotice(SESSION_EXPIRED_MESSAGE)
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+  }, [])
+
   const handleStart = ({ nickname, mode }) => {
+    setSessionNotice('')
     setNickname(nickname)
     setMode(mode)
     setPinAuthenticated(true)
@@ -33,12 +50,14 @@ function App() {
   }
 
   const handleViewVault = (vaultNickname) => {
+    setSessionNotice('')
     setNickname(vaultNickname)
     setPinAuthenticated(true)
     setPage('vault')
   }
 
   const handleSespec = (sespecNickname) => {
+    setSessionNotice('')
     setNickname(sespecNickname)
     setPinAuthenticated(true)
     setPage('sespec')
@@ -61,6 +80,7 @@ function App() {
   }
 
   const returnToLanding = () => {
+    clearSessionToken()
     setPinAuthenticated(false)
     setPage('landing')
   }
@@ -69,12 +89,22 @@ function App() {
     return <AdminPage />
   }
 
+  // 로그인 없이 볼 수 있는 안내 페이지
+  if (hash === '#/terms') {
+    return <TermsPage />
+  }
+
+  if (hash === '#/privacy') {
+    return <PrivacyPage />
+  }
+
   if (PROTECTED_PAGES.includes(page) && !pinAuthenticated) {
     return (
       <LandingPage
         onStart={handleStart}
         onViewVault={handleViewVault}
         onSespec={handleSespec}
+        notice={sessionNotice}
       />
     )
   }
@@ -123,7 +153,21 @@ function App() {
   }
 
   return (
-    <LandingPage onStart={handleStart} onViewVault={handleViewVault} onSespec={handleSespec} />
+    <LandingPage
+      onStart={handleStart}
+      onViewVault={handleViewVault}
+      onSespec={handleSespec}
+      notice={sessionNotice}
+    />
+  )
+}
+
+function App() {
+  return (
+    <>
+      <ToastHost />
+      <AppRoutes />
+    </>
   )
 }
 

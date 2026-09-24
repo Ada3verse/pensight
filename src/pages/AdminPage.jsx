@@ -4,6 +4,7 @@ import {
   deleteNicknameAndDocuments,
   getAllDocuments,
   getNicknameStats,
+  getTodayUsage,
   resetNicknamePin,
 } from '../utils/firestoreService'
 import './AdminPage.css'
@@ -143,6 +144,7 @@ function AdminPage() {
   const [activeTab, setActiveTab] = useState('stats')
   const [documents, setDocuments] = useState([])
   const [nicknameStats, setNicknameStats] = useState([])
+  const [usage, setUsage] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [selectedDoc, setSelectedDoc] = useState(null)
@@ -153,9 +155,14 @@ function AdminPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const [docs, stats] = await Promise.all([getAllDocuments(), getNicknameStats()])
+      const [docs, stats, todayUsage] = await Promise.all([
+        getAllDocuments(),
+        getNicknameStats(),
+        getTodayUsage(),
+      ])
       setDocuments(docs)
       setNicknameStats(stats)
+      setUsage(todayUsage)
     } catch {
       setLoadError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
     } finally {
@@ -253,6 +260,54 @@ function AdminPage() {
                     <span className="admin-stat-value">{todayDocuments}</span>
                   </div>
                 </div>
+
+                {usage && (
+                  <>
+                    <h2>오늘 API 사용량 ({usage.date})</h2>
+                    <div className="admin-stat-grid">
+                      <div className="admin-stat-card">
+                        <span className="admin-stat-label">Vision API (OCR) 총 사용횟수</span>
+                        <span className="admin-stat-value">
+                          {usage.total.vision} / {usage.limits.total.vision}
+                        </span>
+                      </div>
+                      <div className="admin-stat-card">
+                        <span className="admin-stat-label">Claude API 총 사용횟수</span>
+                        <span className="admin-stat-value">
+                          {usage.total.claude} / {usage.limits.total.claude}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h2>닉네임별 오늘 사용량</h2>
+                    {usage.users.length === 0 ? (
+                      <p className="admin-status">오늘 사용 기록이 없습니다.</p>
+                    ) : (
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th>닉네임</th>
+                            <th>OCR ({usage.limits.user.vision})</th>
+                            <th>AI 분석 ({usage.limits.user.ai})</th>
+                            <th>세특 생성 ({usage.limits.user.sespec})</th>
+                            <th>마스킹 ({usage.limits.user.mask})</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {usage.users.map((row) => (
+                            <tr key={row.nickname}>
+                              <td>{row.nickname}</td>
+                              <td>{row.vision}</td>
+                              <td>{row.ai}</td>
+                              <td>{row.sespec}</td>
+                              <td>{row.mask}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
 
                 <h2>닉네임별 문서 수</h2>
                 <ul className="admin-list">

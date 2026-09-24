@@ -318,7 +318,50 @@
   color: #2c2a3a;
 }
 
+/* 세션 만료 안내 */
+.session-notice {
+  margin: 16px 32px 0;
+  padding: 12px 16px;
+  border: 1px solid #f6e29b;
+  border-radius: 10px;
+  background: #fdf7e3;
+  color: #9a7615;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 약관 동의 */
+.consent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: #2c2a3a;
+  cursor: pointer;
+}
+
+.consent input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--main);
+  cursor: pointer;
+}
+
+.consent a,
+.landing-footer-links a {
+  color: var(--main);
+  text-decoration: underline;
+}
+
 /* Footer */
+.landing-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 0;
+}
+
 .landing-footer {
   padding: 24px 32px;
   border-top: 1px solid var(--main-border);
@@ -354,6 +397,17 @@
   .start-button,
   .vault-button {
     width: 100%;
+  }
+
+  .consent {
+    min-height: 44px;
+    text-align: left;
+  }
+
+  .landing-footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 
   /* 터치 대상 최소 44px 확보 */

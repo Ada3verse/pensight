@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { guardUsage } from './lib/usage.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 1536
@@ -210,6 +211,9 @@ export const handler = async (event) => {
     if (!text) {
       return jsonResponse(400, { error: '분석할 텍스트가 없습니다.' })
     }
+
+    const blocked = await guardUsage('ai', event)
+    if (blocked) return blocked
 
     const safeAliases = Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : []
 

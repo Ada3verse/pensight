@@ -1,3 +1,6 @@
+import { authedFetch } from './session'
+import { isLimitResponse, readLimitMessage } from './usageLimit'
+
 const OCR_FUNCTION_URL = '/.netlify/functions/ocr'
 const PDFJS_SCRIPT_URL =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
@@ -51,13 +54,17 @@ function loadPdfJs() {
 async function callVisionApi(base64Image, mimeType) {
   let response
   try {
-    response = await fetch(OCR_FUNCTION_URL, {
+    response = await authedFetch(OCR_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: base64Image, mimeType }),
     })
   } catch {
     throw new OcrError('network', '네트워크 연결을 확인하고 몇 분 후 다시 시도해주세요.')
+  }
+
+  if (isLimitResponse(response)) {
+    throw new OcrError('limit', await readLimitMessage(response))
   }
 
   if (!response.ok) {
@@ -106,7 +113,9 @@ async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
     try {
       const pageText = await renderAndRecognizePage(pageNumber)
       sections.push(pageText)
-    } catch {
+    } catch (err) {
+      // 사용량 한도 초과는 이후 페이지도 모두 실패하므로 페이지별 실패로 넘기지 않고 바로 알린다.
+      if (err instanceof OcrError && err.type === 'limit') throw err
       sections.push(`[${pageNumber}페이지 인식 실패]`)
     }
   }

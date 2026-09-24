@@ -1,4 +1,5 @@
 import { validateImagePayload } from './lib/fileValidation.js'
+import { guardUsage } from './lib/usage.js'
 
 const VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate'
 
@@ -40,6 +41,9 @@ export const handler = async (event) => {
     if (!validation.ok) {
       return jsonResponse(400, { error: VALIDATION_MESSAGES[validation.reason] || '잘못된 요청입니다.' })
     }
+
+    const blocked = await guardUsage('vision', event)
+    if (blocked) return blocked
 
     const apiKey = process.env.GOOGLE_CLOUD_API_KEY
     if (!apiKey) {

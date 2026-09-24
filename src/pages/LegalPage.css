@@ -1,0 +1,142 @@
+.legal {
+  --main: #534ab7;
+  --main-light: #f2f0fb;
+  --main-border: #ded9f5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: #2c2a3a;
+  background: #ffffff;
+}
+
+.legal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--main-border);
+}
+
+.legal-logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--main);
+  letter-spacing: -0.4px;
+}
+
+.legal-back {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--main);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.legal-back:hover {
+  background: var(--main-light);
+}
+
+.legal-main {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 24px 56px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.legal-main h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  letter-spacing: -0.6px;
+  color: #211f2e;
+}
+
+.legal-meta {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: #8b8494;
+}
+
+.legal-intro {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--main-light);
+  font-size: 15px;
+  line-height: 170%;
+}
+
+.legal-section {
+  margin-top: 32px;
+}
+
+.legal-section h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: #211f2e;
+}
+
+.legal-section p,
+.legal-section li {
+  font-size: 15px;
+  line-height: 175%;
+  color: #3d3a4d;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.legal-section p {
+  margin: 0 0 8px;
+}
+
+.legal-section ul {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.legal-section li {
+  margin-bottom: 6px;
+}
+
+.legal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border-top: 1px solid var(--main-border);
+  font-size: 13px;
+  color: #8b8494;
+}
+
+.legal-footer a {
+  color: var(--main);
+  text-decoration: none;
+}
+
+.legal-footer a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .legal-nav {
+    padding: 14px 20px;
+  }
+
+  .legal-main {
+    padding: 28px 20px 40px;
+  }
+
+  .legal-main h1 {
+    font-size: 24px;
+  }
+
+  .legal-section h2 {
+    font-size: 17px;
+  }
+}

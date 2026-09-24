@@ -51,7 +51,7 @@ function VaultPage({ nickname, onBack }) {
       setLoading(true)
       setLoadError('')
       try {
-        const docs = await getDocuments(nickname)
+        const docs = await getDocuments()
         if (cancelled) return
         setDocuments(docs)
       } catch {
@@ -105,7 +105,7 @@ function VaultPage({ nickname, onBack }) {
         ),
       )
       setSelectedDoc((prev) => (prev ? { ...prev, aiSummary: summary } : prev))
-      updateDocument(selectedDoc.id, nickname, { aiSummary: summary }).catch(() => {})
+      updateDocument(selectedDoc.id, { aiSummary: summary }).catch(() => {})
     } catch (err) {
       setAiError(err instanceof AiError ? err.message : DEFAULT_AI_ERROR_MESSAGE)
       setAiStatus('error')
@@ -148,7 +148,7 @@ function VaultPage({ nickname, onBack }) {
   const handleDelete = async () => {
     if (!window.confirm('정말 삭제하시겠습니까?')) return
     try {
-      await deleteDocument(selectedDoc.id, nickname)
+      await deleteDocument(selectedDoc.id)
       setDocuments((prev) => prev.filter((docItem) => docItem.id !== selectedDoc.id))
       closeDoc()
     } catch {

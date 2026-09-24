@@ -1,15 +1,20 @@
-import { useEffect, useState } from 'react'
-import { extractTextFromFile } from '../utils/ocrService'
+import { useEffect, useRef, useState } from 'react'
+import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import SespecGeneratorForm from '../components/SespecGeneratorForm'
+import ProcessSteps from '../components/ProcessSteps'
+import { OCR_HINT, SESPEC_STEPS } from '../utils/processSteps'
 import './SespecGenPage.css'
 
 function SespecGenPage({ nickname, initialRawText, files = [], onBack }) {
   const hasFiles = files.length > 0
 
-  const [ocrDone, setOcrDone] = useState(!hasFiles)
+  const [ocrRunning, setOcrRunning] = useState(hasFiles)
   const [processingIndex, setProcessingIndex] = useState(-1)
   const [ocrStudents, setOcrStudents] = useState([])
   const [ocrError, setOcrError] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
+  // 재시도 시 이미 성공한 파일은 다시 OCR(=Vision 사용량 차감)하지 않도록 결과를 보관한다.
+  const cacheRef = useRef({ files: null, results: [] })
 
   useEffect(() => {
     if (!hasFiles) return
@@ -17,38 +22,56 @@ function SespecGenPage({ nickname, initialRawText, files = [], onBack }) {
     let cancelled = false
 
     async function runBatchOcr() {
-      const collected = []
-      const failedNames = []
+      setOcrRunning(true)
+      setOcrError('')
+
+      if (cacheRef.current.files !== files) cacheRef.current = { files, results: [] }
+      const results = files.map(
+        (_, index) => cacheRef.current.results[index] ?? { studentId: String(index + 1), rawText: '', failed: true },
+      )
+      let limitMessage = ''
 
       for (let index = 0; index < files.length; index += 1) {
         if (cancelled) return
+        if (!results[index].failed) continue
         setProcessingIndex(index)
         try {
           const rawText = await extractTextFromFile(files[index])
-          collected.push({ studentId: String(index + 1), rawText })
-        } catch {
-          collected.push({ studentId: String(index + 1), rawText: '' })
-          failedNames.push(files[index]?.name || `${index + 1}번째 파일`)
+          results[index] = { studentId: String(index + 1), rawText, failed: false }
+        } catch (err) {
+          results[index] = { ...results[index], failed: true }
+          if (err instanceof OcrError && err.type === 'limit') {
+            // 한도 초과 시 남은 파일도 모두 실패하므로 더 시도하지 않는다.
+            limitMessage = err.message
+            break
+          }
         }
       }
 
       if (cancelled) return
-      setOcrStudents(collected)
+      cacheRef.current.results = results
+      setOcrStudents(results)
       setProcessingIndex(-1)
-      if (failedNames.length > 0) {
+
+      const failedNames = results
+        .map((item, index) => (item.failed ? files[index]?.name || `${index + 1}번째 파일` : null))
+        .filter(Boolean)
+      if (limitMessage) {
+        setOcrError(limitMessage)
+      } else if (failedNames.length > 0) {
         setOcrError(`다음 파일의 텍스트 추출에 실패했습니다: ${failedNames.join(', ')}`)
       }
-      setOcrDone(true)
+      setOcrRunning(false)
     }
 
     runBatchOcr()
     return () => {
       cancelled = true
     }
-  }, [hasFiles, files])
+  }, [hasFiles, files, retryKey])
 
   const initialStudents = hasFiles
-    ? ocrStudents
+    ? ocrStudents.map(({ studentId, rawText }) => ({ studentId, rawText }))
     : initialRawText
       ? [{ rawText: initialRawText }]
       : []
@@ -63,15 +86,28 @@ function SespecGenPage({ nickname, initialRawText, files = [], onBack }) {
       </header>
 
       <main className="sespec-gen-page-main">
-        {hasFiles && !ocrDone ? (
-          <div className="sespec-gen-page-ocr-progress">
-            <p>
-              파일 텍스트를 추출하고 있습니다... ({Math.max(processingIndex, 0) + 1}/{files.length})
-            </p>
-          </div>
+        {hasFiles && ocrRunning ? (
+          <ProcessSteps
+            steps={SESPEC_STEPS}
+            current={1}
+            state="running"
+            hint={OCR_HINT}
+            fileProgress={{ total: files.length, index: Math.max(processingIndex, 0) }}
+          />
         ) : (
           <>
-            {ocrError && <p className="sespec-gen-page-ocr-error">{ocrError}</p>}
+            {hasFiles && ocrError && (
+              <ProcessSteps
+                steps={SESPEC_STEPS}
+                current={1}
+                state="error"
+                error={{
+                  message: ocrError,
+                  retryLabel: '실패한 파일 다시 시도',
+                  onRetry: () => setRetryKey((key) => key + 1),
+                }}
+              />
+            )}
             <SespecGeneratorForm initialStudents={initialStudents} />
           </>
         )}

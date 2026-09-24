@@ -1,5 +1,6 @@
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { hashPin } from './lib/pinHash.js'
+import { issueSession } from './lib/session.js'
 
 const USERS_COLLECTION = 'users'
 
@@ -50,7 +51,7 @@ export const handler = async (event) => {
         if (existingPin !== hashedPin) {
           return jsonResponse(200, { success: false, error: 'PIN_MISMATCH' })
         }
-        return jsonResponse(200, { success: true })
+        return jsonResponse(200, { success: true, token: await issueSession(db, nickname) })
       }
 
       await userRef.set(
@@ -62,7 +63,7 @@ export const handler = async (event) => {
         },
         { merge: true },
       )
-      return jsonResponse(200, { success: true })
+      return jsonResponse(200, { success: true, token: await issueSession(db, nickname) })
     }
 
     if (action === 'verify') {
@@ -71,7 +72,7 @@ export const handler = async (event) => {
       }
       const userSnap = await userRef.get()
       const ok = userSnap.exists && userSnap.data().pin === hashPin(pin)
-      return jsonResponse(200, { ok })
+      return jsonResponse(200, ok ? { ok, token: await issueSession(db, nickname) } : { ok })
     }
 
     return jsonResponse(400, { error: '알 수 없는 요청입니다.' })

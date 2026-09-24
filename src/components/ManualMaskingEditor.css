@@ -1,0 +1,102 @@
+.manual-mask {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-mask-guide {
+  padding: 12px 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: var(--main-light);
+  color: var(--main);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.manual-mask-guide.failed {
+  border-color: #f6e29b;
+  background: #fdf7e3;
+  color: #9a7615;
+}
+
+.manual-mask-count {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6375;
+}
+
+.manual-mask-text {
+  flex: 1;
+  min-height: 360px;
+  padding: 16px;
+  border: 1px solid var(--main-border);
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 160%;
+  color: #2c2a3a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+  cursor: text;
+}
+
+/* 마스킹된 부분: 글자를 검정으로 덮어 검은 블록처럼 보이게 한다. */
+.manual-mask-block {
+  background: #111111;
+  color: #111111;
+  border-radius: 2px;
+}
+
+.manual-mask-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.manual-mask-hint {
+  margin-right: auto;
+  font-size: 12px;
+  color: #6b6375;
+}
+
+.manual-mask-undo,
+.manual-mask-complete {
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manual-mask-undo {
+  border: 1px solid var(--main-border);
+  background: #ffffff;
+  color: var(--main);
+}
+
+.manual-mask-undo:disabled {
+  color: #c9c5e0;
+  border-color: #eeecf7;
+  cursor: not-allowed;
+}
+
+.manual-mask-complete {
+  border: none;
+  background: var(--main);
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .manual-mask-footer {
+    flex-wrap: wrap;
+  }
+
+  .manual-mask-hint {
+    flex-basis: 100%;
+  }
+}

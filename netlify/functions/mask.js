@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { guardUsage } from './lib/usage.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 4096
@@ -27,6 +28,28 @@ const buildPrompt = (text) =>
 다음은 변환할 텍스트입니다:
 ${text}`
 
+// DEV_MOCK=true 이거나 NODE_ENV=development 환경에서는 실제 API를 호출하지 않는다.
+function isMockMode() {
+  return process.env.DEV_MOCK === 'true' || process.env.NODE_ENV === 'development'
+}
+
+// Mock 응답: 실제 프롬프트가 요구하는 출력 형식([변환된 텍스트]/[인물 매핑표])을 흉내 낸다.
+// 이름 감지는 하지 않고 예시 이름(홍길동·김철수·이영희)과 전화번호만 치환한다.
+const MOCK_NAMES = ['홍길동', '김철수', '이영희']
+const MOCK_ALIASES = ['가', '나', '다']
+
+function buildMockMasking(text) {
+  let masked = text.replace(/010-\d{4}-\d{4}/g, '010-****-****')
+  const mapping = []
+  MOCK_NAMES.forEach((name, index) => {
+    if (!masked.includes(name)) return
+    masked = masked.split(name).join(MOCK_ALIASES[index])
+    mapping.push(`${MOCK_ALIASES[index]}: ${name}`)
+  })
+  const mappingBlock = mapping.length ? `\n[인물 매핑표]\n${mapping.join('\n')}` : ''
+  return `[변환된 텍스트]\n${masked}${mappingBlock}`
+}
+
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
@@ -51,6 +74,14 @@ export const handler = async (event) => {
     const { text } = payload
     if (!text) {
       return jsonResponse(200, { text: text ?? '', success: false })
+    }
+
+    const blocked = await guardUsage('mask', event)
+    if (blocked) return blocked
+
+    if (isMockMode()) {
+      console.log('[MOCK MODE] 실제 API 미호출')
+      return jsonResponse(200, { text: buildMockMasking(text), success: true })
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY

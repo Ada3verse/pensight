@@ -1,5 +1,7 @@
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { verifyAdminToken } from './lib/adminToken.js'
+import { getTodayUsage } from './lib/usage.js'
+import { deleteAllSessions } from './lib/session.js'
 
 const DOCUMENTS_COLLECTION = 'documents'
 const USERS_COLLECTION = 'users'
@@ -38,6 +40,7 @@ async function listAll(db) {
 }
 
 async function resetPin(db, nickname) {
+  await deleteAllSessions(db, nickname)
   await db.collection(USERS_COLLECTION).doc(nickname).set(
     { pin: null, updatedAt: new Date() },
     { merge: true },
@@ -45,6 +48,7 @@ async function resetPin(db, nickname) {
 }
 
 async function deleteNickname(db, nickname) {
+  await deleteAllSessions(db, nickname)
   const snapshot = await db
     .collection(DOCUMENTS_COLLECTION)
     .where('nickname', '==', nickname)
@@ -82,6 +86,10 @@ export const handler = async (event) => {
     if (action === 'listAll') {
       const result = await listAll(db)
       return jsonResponse(200, result)
+    }
+
+    if (action === 'usageToday') {
+      return jsonResponse(200, await getTodayUsage(db))
     }
 
     if (action === 'resetPin') {

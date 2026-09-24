@@ -1,3 +1,6 @@
+import { authedFetch } from './session'
+import { isLimitResponse, readLimitMessage } from './usageLimit'
+
 const AI_FUNCTION_URL = '/.netlify/functions/ai'
 
 export class AiError extends Error {
@@ -12,13 +15,17 @@ const DEFAULT_ERROR_MESSAGE = 'AI 분석 중 오류가 발생했습니다. 잠�
 export async function analyzeDocument(text, mode, docType, aliases = []) {
   let response
   try {
-    response = await fetch(AI_FUNCTION_URL, {
+    response = await authedFetch(AI_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, mode, docType, aliases }),
     })
   } catch {
     throw new AiError(DEFAULT_ERROR_MESSAGE)
+  }
+
+  if (isLimitResponse(response)) {
+    throw new AiError(await readLimitMessage(response))
   }
 
   const data = await response.json().catch(() => null)

@@ -52,11 +52,12 @@ const MAX_PIN_ATTEMPTS = 5
 const EMPTY_DIGITS = ['', '', '', '']
 const GENERIC_ERROR_MESSAGE = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 
-function LandingPage({ onStart, onViewVault, onSespec }) {
+function LandingPage({ onStart, onViewVault, onSespec, notice }) {
   const [selectedMode, setSelectedMode] = useState('ocr')
   const [nickname, setNickname] = useState('')
   const [formError, setFormError] = useState('')
   const [checkingNickname, setCheckingNickname] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   const [step, setStep] = useState('form')
   const [pendingAction, setPendingAction] = useState(null)
@@ -192,6 +193,12 @@ function LandingPage({ onStart, onViewVault, onSespec }) {
         <span className="landing-nav-note">동신중학교 교사 전용 서비스</span>
       </nav>
 
+      {notice && (
+        <p className="session-notice" role="alert">
+          {notice}
+        </p>
+      )}
+
       <section className="landing-hero">
         <h1>손글씨를 텍스트로, 텍스트를 통찰로</h1>
         <p>PenSight는 손글씨 문서를 OCR로 변환하고 AI로 분석해주는 서비스입니다.</p>
@@ -236,7 +243,7 @@ function LandingPage({ onStart, onViewVault, onSespec }) {
                 type="button"
                 className="start-button"
                 onClick={() => proceedToPinStep('start')}
-                disabled={!nickname.trim() || checkingNickname}
+                disabled={!nickname.trim() || checkingNickname || !agreed}
               >
                 시작하기
               </button>
@@ -244,7 +251,7 @@ function LandingPage({ onStart, onViewVault, onSespec }) {
                 type="button"
                 className="vault-button"
                 onClick={() => proceedToPinStep('vault')}
-                disabled={!nickname.trim() || checkingNickname}
+                disabled={!nickname.trim() || checkingNickname || !agreed}
               >
                 내 보관함
               </button>
@@ -252,11 +259,28 @@ function LandingPage({ onStart, onViewVault, onSespec }) {
                 type="button"
                 className="vault-button"
                 onClick={() => proceedToPinStep('sespec')}
-                disabled={!nickname.trim() || checkingNickname}
+                disabled={!nickname.trim() || checkingNickname || !agreed}
               >
                 세특 작성
               </button>
             </div>
+            <label className="consent">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(event) => setAgreed(event.target.checked)}
+              />
+              <span>
+                <a href="#/terms" target="_blank" rel="noreferrer">
+                  이용약관
+                </a>{' '}
+                및{' '}
+                <a href="#/privacy" target="_blank" rel="noreferrer">
+                  개인정보처리방침
+                </a>
+                에 동의합니다
+              </span>
+            </label>
             {formError && <p className="pin-error">{formError}</p>}
             <p className="start-note">
               로그인 없이 닉네임만으로 시작합니다. 본인이 업로드한 파일만 표시됩니다.
@@ -324,6 +348,11 @@ function LandingPage({ onStart, onViewVault, onSespec }) {
 
       <footer className="landing-footer">
         <p>PenSight · 동신중학교 교사 전용 서비스</p>
+        <p className="landing-footer-links">
+          <a href="#/terms">이용약관</a>
+          <span aria-hidden="true">·</span>
+          <a href="#/privacy">개인정보처리방침</a>
+        </p>
       </footer>
     </div>
   )

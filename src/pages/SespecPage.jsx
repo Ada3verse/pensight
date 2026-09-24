@@ -1,5 +1,10 @@
 import { useRef, useState } from 'react'
 import { extractTextFromFile, OcrError } from '../utils/ocrService'
+import ProcessSteps from '../components/ProcessSteps'
+import { notifyComplete, requestNotificationPermission } from '../utils/notify'
+import { OCR_HINT, SESPEC_HINT, SESPEC_STEPS } from '../utils/processSteps'
+import { authedFetch } from '../utils/session'
+import { isLimitResponse, readLimitMessage } from '../utils/usageLimit'
 import { generatePDF, buildPdfFileName } from '../utils/pdfService'
 import { validateFiles } from '../utils/fileValidation'
 import './SespecPage.css'
@@ -32,16 +37,22 @@ function createStudentItem(file) {
   }
 }
 
+class SespecLimitError extends Error {}
+
 async function requestSespecBatch(batchStudents, mode) {
   let response
   try {
-    response = await fetch(SESPEC_FUNCTION_URL, {
+    response = await authedFetch(SESPEC_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ students: batchStudents, mode }),
     })
   } catch {
     throw new Error('네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.')
+  }
+
+  if (isLimitResponse(response)) {
+    throw new SespecLimitError(await readLimitMessage(response))
   }
 
   const data = await response.json().catch(() => null)
@@ -140,6 +151,8 @@ function SespecPage({ nickname, onBack }) {
   const buildStudentKeywords = () => [activityName, ...keywords]
 
   const handleGenerateStart = async () => {
+    // 완료 알림을 받을 수 있도록 사용자 클릭 시점에 브라우저 알림 권한을 요청한다.
+    requestNotificationPermission()
     setGenerating(true)
     const aliases = students.map((_, index) => getAliasSymbol(index))
     setResults(
@@ -210,11 +223,13 @@ function SespecPage({ nickname, onBack }) {
             }
           }),
         )
-      } catch {
+      } catch (err) {
+        const message =
+          err instanceof SespecLimitError ? err.message : '세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.'
         setResults((prev) =>
           prev.map((item) =>
             batchStudents.some((entry) => entry.alias === item.alias)
-              ? { ...item, status: 'error', error: '세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.' }
+              ? { ...item, status: 'error', error: message }
               : item,
           ),
         )
@@ -224,6 +239,7 @@ function SespecPage({ nickname, onBack }) {
     setPhase('idle')
     setGenerating(false)
     setStep(4)
+    notifyComplete('세특 초안 생성이 완료됐습니다.')
   }
 
   const handleRegenerate = async (id) => {
@@ -261,7 +277,10 @@ function SespecPage({ nickname, onBack }) {
             ? {
                 ...item,
                 status: 'error',
-                error: err instanceof OcrError ? err.message : '세특 재생성에 실패했습니다. 다시 시도해주세요.',
+                error:
+                  err instanceof OcrError || err instanceof SespecLimitError
+                    ? err.message
+                    : '세특 재생성에 실패했습니다. 다시 시도해주세요.',
               }
             : item,
         ),
@@ -533,6 +552,24 @@ function SespecPage({ nickname, onBack }) {
               </>
             ) : (
               <>
+                {phase === 'ocr' ? (
+                  <ProcessSteps
+                    steps={SESPEC_STEPS}
+                    current={1}
+                    state="running"
+                    hint={OCR_HINT}
+                    fileProgress={{ total: students.length, index: Math.max(processingIndex, 0) }}
+                    percent={Math.round((Math.max(processingIndex, 0) / students.length) * 50)}
+                  />
+                ) : (
+                  <ProcessSteps
+                    steps={SESPEC_STEPS}
+                    current={2}
+                    state="running"
+                    hint={SESPEC_HINT}
+                    indeterminate
+                  />
+                )}
                 <p className="sespec-progress-text">
                   {phase === 'ocr' && processingIndex >= 0
                     ? `${classNumber}반 '${getAliasSymbol(processingIndex)}' 처리 중... (${processingIndex + 1}/${students.length})`

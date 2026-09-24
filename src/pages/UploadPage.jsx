@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { validateFiles } from '../utils/fileValidation'
+import { requestNotificationPermission } from '../utils/notify'
 import './UploadPage.css'
 
 const MODE_LABELS = {
@@ -64,6 +65,8 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
 
   const handleAnalyze = () => {
     if (files.length === 0) return
+    // 처리 완료 알림을 받을 수 있도록 사용자 클릭 시점에 브라우저 알림 권한을 요청한다.
+    requestNotificationPermission()
     onAnalyze?.(files.map((item) => item.file), docType)
   }
 

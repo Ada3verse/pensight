@@ -1,4 +1,6 @@
 import { parseAliasLines } from './aliasLineParser.js'
+import { authedFetch } from './session'
+import { isLimitResponse, readLimitMessage } from './usageLimit'
 
 const MASK_FUNCTION_URL = '/.netlify/functions/mask'
 
@@ -72,7 +74,7 @@ export async function maskPersonalInfo(text) {
 
   let response
   try {
-    response = await fetch(MASK_FUNCTION_URL, {
+    response = await authedFetch(MASK_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
@@ -80,6 +82,11 @@ export async function maskPersonalInfo(text) {
   } catch (err) {
     console.error('[masking] 요청 실패', err)
     return { maskedText: text, mappingTable: [], mappingStatus: 'empty', success: false }
+  }
+
+  if (isLimitResponse(response)) {
+    const limitMessage = await readLimitMessage(response)
+    return { maskedText: text, mappingTable: [], mappingStatus: 'empty', success: false, limitMessage }
   }
 
   const data = await response.json().catch(() => null)

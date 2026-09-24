@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { guardUsage } from './lib/usage.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 8192
@@ -108,6 +109,9 @@ export const handler = async (event) => {
     if (!Array.isArray(students) || students.length === 0 || students.length > MAX_STUDENTS) {
       return jsonResponse(400, { error: `학생 수는 1명 이상 ${MAX_STUDENTS}명 이하여야 합니다.` })
     }
+
+    const blocked = await guardUsage('sespec', event)
+    if (blocked) return blocked
 
     const resolvedMode = mode === 'free_semester' ? 'free_semester' : 'subject'
 

@@ -712,3 +712,51 @@
     flex-wrap: wrap;
   }
 }
+
+/* 1단계 자동 마스킹 진행 표시 */
+.masking-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-basis: 100%;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--main);
+}
+
+.masking-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--main-border);
+  border-top-color: var(--main);
+  border-radius: 50%;
+  animation: masking-spin 0.8s linear infinite;
+}
+
+@keyframes masking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ai-retry-button {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid #d32f2f;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #d32f2f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}

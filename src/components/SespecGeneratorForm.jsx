@@ -1,5 +1,10 @@
 import { useState } from 'react'
 import { downloadPdf, downloadTxt, downloadXlsx } from '../utils/sespecDownload'
+import ProcessSteps from './ProcessSteps'
+import { notifyComplete, requestNotificationPermission } from '../utils/notify'
+import { SESPEC_HINT, SESPEC_STEPS } from '../utils/processSteps'
+import { authedFetch } from '../utils/session'
+import { isLimitResponse, readLimitMessage } from '../utils/usageLimit'
 import './SespecGeneratorForm.css'
 
 const SESPEC_FUNCTION_URL = '/.netlify/functions/sespec'
@@ -23,16 +28,22 @@ function createRow(index, overrides = {}) {
   }
 }
 
+class SespecLimitError extends Error {}
+
 async function requestSespecGeneration(payload) {
   let response
   try {
-    response = await fetch(SESPEC_FUNCTION_URL, {
+    response = await authedFetch(SESPEC_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
   } catch {
     throw new Error('네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.')
+  }
+
+  if (isLimitResponse(response)) {
+    throw new SespecLimitError(await readLimitMessage(response))
   }
 
   const data = await response.json().catch(() => null)
@@ -66,6 +77,7 @@ function SespecGeneratorForm({ initialStudents = [] }) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [results, setResults] = useState(null)
+  const [generateError, setGenerateError] = useState('')
   const [copyStates, setCopyStates] = useState({})
   const [resultMeta, setResultMeta] = useState(null)
   const [downloading, setDownloading] = useState(false)
@@ -97,7 +109,10 @@ function SespecGeneratorForm({ initialStudents = [] }) {
     !generating
 
   const handleGenerate = async () => {
+    // 완료 알림을 받을 수 있도록 사용자 클릭 시점에 브라우저 알림 권한을 요청한다.
+    requestNotificationPermission()
     setError('')
+    setGenerateError('')
     setGenerating(true)
     setResults(null)
 
@@ -119,13 +134,16 @@ function SespecGeneratorForm({ initialStudents = [] }) {
     try {
       const batchResults = await requestSespecGeneration(payload)
       setResults(batchResults)
+      notifyComplete('세특 초안 생성이 완료됐습니다.')
       setResultMeta({
         subjectName: subjectName.trim(),
         grade,
         activityName: activityName.trim(),
       })
-    } catch {
-      setError('세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.')
+    } catch (err) {
+      setGenerateError(
+        err instanceof SespecLimitError ? err.message : '세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.',
+      )
     } finally {
       setGenerating(false)
     }
@@ -284,6 +302,16 @@ function SespecGeneratorForm({ initialStudents = [] }) {
           + 학생 추가
         </button>
       </section>
+
+      {(generating || generateError || hasResults) && (
+        <ProcessSteps
+          steps={SESPEC_STEPS}
+          current={generating || generateError ? 2 : 3}
+          state={generating ? 'running' : generateError ? 'error' : 'complete'}
+          hint={SESPEC_HINT}
+          error={{ message: generateError, retryLabel: '세특 생성 다시 시도', onRetry: handleGenerate }}
+        />
+      )}
 
       {error && <p className="sespec-gen-error">{error}</p>}
 
