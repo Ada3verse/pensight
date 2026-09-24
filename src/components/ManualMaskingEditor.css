@@ -94,3 +94,44 @@
     flex-basis: 100%;
   }
 }
+
+.manual-mask-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: var(--main-light);
+  cursor: pointer;
+}
+
+.manual-mask-confirm input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--main);
+  cursor: pointer;
+}
+
+.manual-mask-confirm-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 155%;
+  color: #2c2a3a;
+}
+
+.manual-mask-confirm-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 155%;
+  color: #6b6375;
+}
+
+.manual-mask-complete:disabled {
+  background: #c9c5e0;
+  cursor: not-allowed;
+}

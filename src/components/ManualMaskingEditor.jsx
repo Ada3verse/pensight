@@ -6,6 +6,7 @@ import './ManualMaskingEditor.css'
 function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
   const [text, setText] = useState(initialText)
   const [history, setHistory] = useState([])
+  const [confirmed, setConfirmed] = useState(false)
   const textRef = useRef(null)
 
   const segments = useMemo(() => splitMaskSegments(text), [text])
@@ -14,6 +15,7 @@ function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
     setHistory((prev) => {
       if (prev.length === 0) return prev
       setText(prev[prev.length - 1])
+      setConfirmed(false) // 본문이 바뀌면 다시 확인해야 한다
       return prev.slice(0, -1)
     })
   }
@@ -52,6 +54,7 @@ function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
 
     setHistory((prev) => [...prev, text])
     setText(next)
+    setConfirmed(false)
   }
 
   return (
@@ -81,6 +84,22 @@ function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
         )}
       </div>
 
+      <label className="manual-mask-confirm">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
+        />
+        <span>
+          <span className="manual-mask-confirm-label">
+            본문을 직접 읽고 개인정보(이름, 연락처, 학번 등)가 모두 가려진 것을 확인했습니다.
+          </span>
+          <small className="manual-mask-confirm-note">
+            자동 마스킹은 보조 도구입니다. 드래그로 추가 마스킹 후 직접 확인해주세요.
+          </small>
+        </span>
+      </label>
+
       <div className="manual-mask-footer">
         <span className="manual-mask-hint">Ctrl+Z (Mac: ⌘+Z)로 되돌릴 수 있습니다.</span>
         <button
@@ -91,7 +110,12 @@ function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
         >
           되돌리기
         </button>
-        <button type="button" className="manual-mask-complete" onClick={() => onComplete(text)}>
+        <button
+          type="button"
+          className="manual-mask-complete"
+          onClick={() => onComplete(text)}
+          disabled={!confirmed}
+        >
           마스킹 완료
         </button>
       </div>
