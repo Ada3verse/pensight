@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import ProcessSteps from '../components/ProcessSteps'
+import DuplicateCheckNotice from '../components/DuplicateCheckNotice'
 import { setErrorContext } from '../utils/errorReporter'
 import { notifyComplete, requestNotificationPermission } from '../utils/notify'
 import { OCR_HINT, SESPEC_HINT, SESPEC_STEPS } from '../utils/processSteps'
@@ -40,13 +41,13 @@ function createStudentItem(file) {
 
 class SespecLimitError extends Error {}
 
-async function requestSespecBatch(batchStudents, mode) {
+async function requestSespecBatch(batchStudents, mode, subject) {
   let response
   try {
     response = await authedFetch(SESPEC_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ students: batchStudents, mode }),
+      body: JSON.stringify({ students: batchStudents, mode, subjectName: subject.subjectName, grade: subject.grade }),
     })
   } catch {
     throw new Error('네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.')
@@ -60,12 +61,15 @@ async function requestSespecBatch(batchStudents, mode) {
   if (!response.ok || !data || data.error) {
     throw new Error(data?.error || '세특 생성 중 오류가 발생했습니다.')
   }
-  return data.results
+  return { results: data.results, duplicateCheck: data.duplicateCheck ?? null }
 }
 
 function SespecPage({ nickname, onBack }) {
   const [step, setStep] = useState(1)
 
+  const [subjectName, setSubjectName] = useState('')
+  const [grade, setGrade] = useState(null)
+  const [duplicateCheck, setDuplicateCheck] = useState(null)
   const [activityName, setActivityName] = useState('')
   const [keywords, setKeywords] = useState([])
   const [keywordInput, setKeywordInput] = useState('')
@@ -111,7 +115,8 @@ function SespecPage({ nickname, onBack }) {
     }
   }
 
-  const canProceedToUpload = Boolean(activityName.trim()) && keywords.length >= MIN_KEYWORDS
+  const canProceedToUpload =
+    Boolean(subjectName.trim()) && Boolean(grade) && Boolean(activityName.trim()) && keywords.length >= MIN_KEYWORDS
 
   const atStudentCapacity = students.length >= MAX_STUDENTS
 
@@ -216,7 +221,9 @@ function SespecPage({ nickname, onBack }) {
     if (batchStudents.length > 0) {
       setPhase('ai')
       try {
-        const batchResults = await requestSespecBatch(batchStudents, 'subject')
+        const generation = await requestSespecBatch(batchStudents, 'subject', { subjectName: subjectName.trim(), grade })
+        const batchResults = generation.results
+        setDuplicateCheck(generation.duplicateCheck)
         setResults((prev) =>
           prev.map((item) => {
             const match = batchResults.find((entry) => entry.alias === item.alias)
@@ -226,6 +233,7 @@ function SespecPage({ nickname, onBack }) {
               status: 'done',
               text: match.sespec,
               forbiddenWords: match.forbiddenWords || [],
+              similar: Boolean(match.similar),
             }
           }),
         )
@@ -257,11 +265,13 @@ function SespecPage({ nickname, onBack }) {
 
     try {
       const extractedText = existing.extractedText || (await extractTextFromFile(students[index].file))
-      const batchResults = await requestSespecBatch(
+      const generation = await requestSespecBatch(
         [{ alias: existing.alias, extractedText, keywords: buildStudentKeywords() }],
         'subject',
+        { subjectName: subjectName.trim(), grade },
       )
-      const match = batchResults[0]
+      const match = generation.results[0]
+      setDuplicateCheck(generation.duplicateCheck)
       setResults((prev) =>
         prev.map((item) =>
           item.id === id
@@ -270,6 +280,7 @@ function SespecPage({ nickname, onBack }) {
                 status: 'done',
                 text: match?.sespec ?? '',
                 forbiddenWords: match?.forbiddenWords ?? [],
+                similar: Boolean(match?.similar),
                 extractedText,
                 error: '',
               }
@@ -351,6 +362,35 @@ function SespecPage({ nickname, onBack }) {
         {step === 1 && (
           <section className="sespec-panel">
             <h2>1. 공통 키워드 입력</h2>
+
+            <label className="sespec-field-label" htmlFor="sespec-subject-name">
+              과목명
+            </label>
+            <input
+              id="sespec-subject-name"
+              type="text"
+              className="sespec-text-input"
+              value={subjectName}
+              onChange={(event) => setSubjectName(event.target.value)}
+              placeholder="예: 통합과학"
+            />
+
+            <label className="sespec-field-label">학년</label>
+            <div className="sespec-grade-row">
+              {[1, 2, 3].map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={`sespec-grade-button ${grade === value ? 'active' : ''}`}
+                  onClick={() => setGrade(value)}
+                >
+                  {value}학년
+                </button>
+              ))}
+            </div>
+            <p className="sespec-duplicate-hint">
+              같은 과목·학년으로 여러 반을 생성하면 오늘 생성한 다른 반의 세특과도 겹치지 않게 작성됩니다.
+            </p>
 
             <label className="sespec-field-label" htmlFor="sespec-activity-name">
               수업 활동명/주제
@@ -621,6 +661,8 @@ function SespecPage({ nickname, onBack }) {
               </div>
             </div>
 
+            <DuplicateCheckNotice duplicateCheck={duplicateCheck} />
+
             <div className="sespec-card-grid">
               {results.map((item) => (
                 <div className="sespec-card" key={item.id}>
@@ -641,6 +683,9 @@ function SespecPage({ nickname, onBack }) {
                     <p className="sespec-card-error">{item.error}</p>
                   ) : (
                     <>
+                      {item.similar && (
+                        <p className="sespec-card-warning">⚠️ 유사 표현 주의: 오늘 생성한 다른 세특과 비슷한 문장이 있습니다.</p>
+                      )}
                       {item.forbiddenWords?.length > 0 && (
                         <p className="sespec-card-warning">
                           ⚠️ 금지어 포함: {item.forbiddenWords.join(', ')}

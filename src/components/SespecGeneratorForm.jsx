@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { downloadPdf, downloadTxt, downloadXlsx } from '../utils/sespecDownload'
 import ProcessSteps from './ProcessSteps'
+import DuplicateCheckNotice from './DuplicateCheckNotice'
 import { notifyComplete, requestNotificationPermission } from '../utils/notify'
 import { SESPEC_HINT, SESPEC_STEPS } from '../utils/processSteps'
 import { authedFetch } from '../utils/session'
@@ -50,7 +51,7 @@ async function requestSespecGeneration(payload) {
   if (!response.ok || !data || data.error) {
     throw new Error(data?.error || '세특 생성 중 오류가 발생했습니다.')
   }
-  return data.results
+  return { results: data.results, duplicateCheck: data.duplicateCheck ?? null }
 }
 
 function SespecGeneratorForm({ initialStudents = [] }) {
@@ -77,6 +78,7 @@ function SespecGeneratorForm({ initialStudents = [] }) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [results, setResults] = useState(null)
+  const [duplicateCheck, setDuplicateCheck] = useState(null)
   const [generateError, setGenerateError] = useState('')
   const [copyStates, setCopyStates] = useState({})
   const [resultMeta, setResultMeta] = useState(null)
@@ -115,9 +117,11 @@ function SespecGeneratorForm({ initialStudents = [] }) {
     setGenerateError('')
     setGenerating(true)
     setResults(null)
+    setDuplicateCheck(null)
 
     const payload = {
       mode,
+      grade,
       subjectName: subjectName.trim(),
       activityName: activityName.trim(),
       teacherExampleStyle: teacherStyle.trim(),
@@ -132,8 +136,9 @@ function SespecGeneratorForm({ initialStudents = [] }) {
     }
 
     try {
-      const batchResults = await requestSespecGeneration(payload)
-      setResults(batchResults)
+      const generation = await requestSespecGeneration(payload)
+      setResults(generation.results)
+      setDuplicateCheck(generation.duplicateCheck)
       notifyComplete('세특 초안 생성이 완료됐습니다.')
       setResultMeta({
         subjectName: subjectName.trim(),
@@ -341,6 +346,8 @@ function SespecGeneratorForm({ initialStudents = [] }) {
             <h2>생성 결과</h2>
           </div>
 
+          <DuplicateCheckNotice duplicateCheck={duplicateCheck} />
+
           <div className="sespec-gen-card-grid">
             {results.map((item) => (
               <div className="sespec-gen-card" key={item.alias}>
@@ -354,6 +361,9 @@ function SespecGeneratorForm({ initialStudents = [] }) {
                     {copyStates[item.alias] || '복사'}
                   </button>
                 </div>
+                {item.similar && (
+                  <p className="sespec-gen-warning">⚠️ 유사 표현 주의: 오늘 생성한 다른 세특과 비슷한 문장이 있습니다.</p>
+                )}
                 {item.forbiddenWords?.length > 0 && (
                   <p className="sespec-gen-warning">⚠️ 금지어 포함: {item.forbiddenWords.join(', ')}</p>
                 )}

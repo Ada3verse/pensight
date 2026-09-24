@@ -4,6 +4,14 @@ import { logServerError } from './lib/errorLog.js'
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { requireSession } from './lib/session.js'
 import { buildStyleExampleBlock } from './lib/references.js'
+import {
+  appendHistory,
+  buildHistoryBlock,
+  DAILY_HISTORY_CAP,
+  detectSimilar,
+  loadHistory,
+  normalizeHistoryKey,
+} from './lib/sespecHistory.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 8192
@@ -108,7 +116,7 @@ export const handler = async (event) => {
       return jsonResponse(400, { error: '잘못된 요청입니다.' })
     }
 
-    const { students, mode } = payload
+    const { students, mode, subjectName, grade } = payload
 
     if (!Array.isArray(students) || students.length === 0 || students.length > MAX_STUDENTS) {
       return jsonResponse(400, { error: `학생 수는 1명 이상 ${MAX_STUDENTS}명 이하여야 합니다.` })
@@ -126,54 +134,68 @@ export const handler = async (event) => {
     )
     const pendingStudents = students.filter((student) => !absentAliases.has(student.alias))
 
-    if (isMockMode()) {
-      console.log('[MOCK MODE] 실제 API 미호출')
-      const results = students.map((student) => {
-        const sespec = absentAliases.has(student.alias)
-          ? ABSENCE_TEXT
-          : buildMockSespec(student, resolvedMode)
-        return { alias: student.alias, sespec, forbiddenWords: findForbiddenWords(sespec) }
-      })
-      return jsonResponse(200, { results })
-    }
+    const { nickname } = await requireSession(event)
+    const db = getAdminDb()
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      await logServerError(event, 'sespec', 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
-      return jsonResponse(500, { error: SESPEC_FAILURE_MESSAGE })
+    // 같은 교사·과목·학년으로 오늘 이미 생성한 세특(이전 반 등)을 불러와 중복을 피한다. 하루 누적 상한을 넘으면 중복 검사 없이 생성한다.
+    const historyKey = normalizeHistoryKey({ nickname, subjectName, grade })
+    let previous = []
+    if (historyKey) {
+      try {
+        previous = await loadHistory(db, historyKey)
+      } catch (err) {
+        await logServerError(event, 'sespec', '세특 이력 조회 실패(중복 검사 없이 진행)', err)
+      }
     }
+    const limitReached = previous.length >= DAILY_HISTORY_CAP
+    const comparisonEntries = limitReached ? [] : previous
 
     let generatedByAlias = new Map()
-    if (pendingStudents.length > 0) {
-      const client = new Anthropic({ apiKey })
-
-      // 교사 본인의 세특 예시문이 있으면 문체 학습용으로 프롬프트에 덧붙인다. 없거나 조회에 실패하면 기존 프롬프트 그대로 사용한다.
-      let styleBlock = ''
-      try {
-        const { nickname } = await requireSession(event)
-        styleBlock = await buildStyleExampleBlock(getAdminDb(), { nickname })
-      } catch (err) {
-        await logServerError(event, 'sespec', '세특 예시문 조회 실패(기존 프롬프트로 진행)', err)
+    if (isMockMode()) {
+      console.log('[MOCK MODE] 실제 API 미호출')
+      for (const student of pendingStudents) {
+        generatedByAlias.set(student.alias, buildMockSespec(student, resolvedMode))
+      }
+    } else {
+      const apiKey = process.env.ANTHROPIC_API_KEY
+      if (!apiKey) {
+        await logServerError(event, 'sespec', 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+        return jsonResponse(500, { error: SESPEC_FAILURE_MESSAGE })
       }
 
-      let response
-      try {
-        response = await client.messages.create({
-          model: MODEL,
-          max_tokens: MAX_TOKENS,
-          messages: [{ role: 'user', content: buildPrompt(resolvedMode, pendingStudents, styleBlock) }],
-        })
-      } catch (err) {
-        await logServerError(event, 'sespec', 'Anthropic API 호출 실패', err)
-        return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
-      }
+      if (pendingStudents.length > 0) {
+        const client = new Anthropic({ apiKey })
 
-      const textBlock = response.content.find((block) => block.type === 'text')
-      if (!textBlock) {
-        await logServerError(event, 'sespec', 'Anthropic 응답에 text 블록이 없음', response)
-        return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
+        // 교사 본인의 세특 예시문(문체 학습)이 있으면 프롬프트에 덧붙인다. 없거나 조회에 실패하면 기존 프롬프트 그대로 사용한다.
+        let styleBlock = ''
+        try {
+          styleBlock = await buildStyleExampleBlock(db, { nickname })
+        } catch (err) {
+          await logServerError(event, 'sespec', '세특 예시문 조회 실패(기존 프롬프트로 진행)', err)
+        }
+        const historyBlock = buildHistoryBlock(comparisonEntries)
+
+        let response
+        try {
+          response = await client.messages.create({
+            model: MODEL,
+            max_tokens: MAX_TOKENS,
+            messages: [
+              { role: 'user', content: buildPrompt(resolvedMode, pendingStudents, styleBlock + historyBlock) },
+            ],
+          })
+        } catch (err) {
+          await logServerError(event, 'sespec', 'Anthropic API 호출 실패', err)
+          return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
+        }
+
+        const textBlock = response.content.find((block) => block.type === 'text')
+        if (!textBlock) {
+          await logServerError(event, 'sespec', 'Anthropic 응답에 text 블록이 없음', response)
+          return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
+        }
+        generatedByAlias = parseBatchResponse(textBlock.text)
       }
-      generatedByAlias = parseBatchResponse(textBlock.text)
     }
 
     const results = students.map((student) => {
@@ -183,7 +205,33 @@ export const handler = async (event) => {
       return { alias: student.alias, sespec, forbiddenWords: findForbiddenWords(sespec) }
     })
 
-    return jsonResponse(200, { results })
+    // 실제로 생성된 초안만 유사 문장 검사와 이력 저장 대상이다(결석 문구·생성 실패 제외).
+    const generatedEntries = students
+      .filter((student) => generatedByAlias.has(student.alias) && generatedByAlias.get(student.alias))
+      .map((student) => ({ alias: student.alias, text: generatedByAlias.get(student.alias) }))
+
+    let duplicateCheck = null
+    if (historyKey) {
+      const flagged = limitReached ? new Map() : detectSimilar(generatedEntries, comparisonEntries)
+      for (const result of results) result.similar = flagged.has(result.alias)
+
+      let saved = 0
+      if (!limitReached) {
+        try {
+          saved = await appendHistory(db, historyKey, generatedEntries)
+        } catch (err) {
+          await logServerError(event, 'sespec', '세특 이력 저장 실패', err)
+        }
+      }
+      duplicateCheck = {
+        previousCount: previous.length,
+        limitReached,
+        cap: DAILY_HISTORY_CAP,
+        limitReachedNow: !limitReached && previous.length + saved >= DAILY_HISTORY_CAP,
+      }
+    }
+
+    return jsonResponse(200, { results, duplicateCheck })
   } catch (err) {
     await logServerError(event, 'sespec', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: SESPEC_FAILURE_MESSAGE })

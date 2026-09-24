@@ -10,7 +10,7 @@ import { logServerError } from './errorLog.js'
 export const USAGE_COLLECTION = 'usage'
 
 // kind: vision(OCR) / ai(AI 분석) / sespec(세특 생성) / mask(개인정보 마스킹, Claude 호출) / counsel(AI 상담 추천, Claude 호출)
-export const USER_DAILY_LIMITS = { vision: 50, ai: 10, sespec: 3, mask: 20, counsel: 5 }
+export const USER_DAILY_LIMITS = { vision: 50, ai: 10, sespec: 5, mask: 20, counsel: 5 }
 export const TOTAL_DAILY_LIMITS = { vision: 200, claude: 100 }
 
 export const USER_LIMIT_MESSAGE = '오늘 사용 한도에 도달했습니다. 내일 다시 시도해주세요.'

@@ -1,0 +1,17 @@
+.duplicate-notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 10px;
+  background: var(--main-light, #f2f0fb);
+  color: var(--main, #534ab7);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.duplicate-notice.limit {
+  border-color: #f6e29b;
+  background: #fdf7e3;
+  color: #9a7615;
+}
