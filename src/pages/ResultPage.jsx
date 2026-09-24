@@ -13,6 +13,7 @@ import { generatePDF, buildPdfFileName } from '../utils/pdfService'
 import PdfSectionModal from '../components/PdfSectionModal'
 import ManualMaskingEditor from '../components/ManualMaskingEditor'
 import ProcessSteps from '../components/ProcessSteps'
+import CounselRecommendation from '../components/CounselRecommendation'
 import { notifyComplete } from '../utils/notify'
 import { setErrorContext } from '../utils/errorReporter'
 import { countAutoMasked } from '../utils/manualMasking'
@@ -677,6 +678,11 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* 상담 추천은 학교폭력·진로 문서에서만, 교사가 버튼을 눌렀을 때만 생성한다. */}
+            {aiStatus === 'done' && (docType === 'violence' || docType === 'career') && (
+              <CounselRecommendation docType={docType} text={ocrText} summary={aiSummary} />
             )}
           </div>
         </section>

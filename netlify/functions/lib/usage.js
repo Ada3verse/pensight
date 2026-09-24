@@ -9,8 +9,8 @@ import { logServerError } from './errorLog.js'
 
 export const USAGE_COLLECTION = 'usage'
 
-// kind: vision(OCR) / ai(AI 분석) / sespec(세특 생성) / mask(개인정보 마스킹, Claude 호출)
-export const USER_DAILY_LIMITS = { vision: 50, ai: 10, sespec: 3, mask: 20 }
+// kind: vision(OCR) / ai(AI 분석) / sespec(세특 생성) / mask(개인정보 마스킹, Claude 호출) / counsel(AI 상담 추천, Claude 호출)
+export const USER_DAILY_LIMITS = { vision: 50, ai: 10, sespec: 3, mask: 20, counsel: 5 }
 export const TOTAL_DAILY_LIMITS = { vision: 200, claude: 100 }
 
 export const USER_LIMIT_MESSAGE = '오늘 사용 한도에 도달했습니다. 내일 다시 시도해주세요.'
@@ -120,6 +120,8 @@ export async function guardUsage(kind, event) {
   return jsonResponse(429, { error: TOTAL_LIMIT_MESSAGE, code: 'TOTAL_LIMIT' })
 }
 
+const sum = (row) => row.vision + row.ai + row.sespec + row.mask + row.counsel
+
 export async function getTodayUsage(db, now = new Date()) {
   const dateKey = todayKey(now)
   const totalSnap = await db.collection(USAGE_COLLECTION).doc(dateKey).get()
@@ -136,9 +138,10 @@ export async function getTodayUsage(db, now = new Date()) {
         ai: data.ai ?? 0,
         sespec: data.sespec ?? 0,
         mask: data.mask ?? 0,
+        counsel: data.counsel ?? 0,
       }
     })
-    .sort((a, b) => b.vision + b.ai + b.sespec + b.mask - (a.vision + a.ai + a.sespec + a.mask))
+    .sort((a, b) => sum(b) - sum(a))
 
   return {
     date: dateKey,

@@ -1,0 +1,205 @@
+.counsel {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 14px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.counsel-start {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--main, #534ab7);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.counsel-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #6b6375;
+}
+
+.counsel-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--main, #534ab7);
+}
+
+.counsel-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--main, #534ab7);
+}
+
+.counsel-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--main-border, #ded9f5);
+  border-top-color: var(--main, #534ab7);
+  border-radius: 50%;
+  animation: counsel-spin 0.8s linear infinite;
+}
+
+@keyframes counsel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.counsel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #b3261e;
+}
+
+.counsel-retry {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid #d32f2f;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #d32f2f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.counsel-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--main-border, #ded9f5);
+}
+
+.counsel-tab {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: #8b8494;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.counsel-tab.active {
+  color: var(--main, #534ab7);
+  border-bottom-color: var(--main, #534ab7);
+}
+
+.counsel-panel {
+  padding: 14px 2px;
+  min-height: 120px;
+}
+
+.counsel-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 175%;
+  color: #2c2a3a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.counsel-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #8b8494;
+}
+
+.counsel-script {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.counsel-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--main-light, #f2f0fb);
+  font-size: 14px;
+  line-height: 165%;
+}
+
+.counsel-line.student {
+  background: #fdf7e3;
+}
+
+.counsel-role {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--main, #534ab7);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.counsel-line.student .counsel-role {
+  background: #9a7615;
+}
+
+.counsel-line-text {
+  word-break: break-word;
+}
+
+.counsel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--main-border, #ded9f5);
+}
+
+.counsel-disclaimer {
+  font-size: 12px;
+  color: #6b6375;
+}
+
+.counsel-copy {
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--main, #534ab7);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.counsel-copy:disabled {
+  color: #c9c5e0;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .counsel-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

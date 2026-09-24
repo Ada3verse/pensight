@@ -339,6 +339,7 @@ function AdminPage() {
                             <th>AI 분석 ({usage.limits.user.ai})</th>
                             <th>세특 생성 ({usage.limits.user.sespec})</th>
                             <th>마스킹 ({usage.limits.user.mask})</th>
+                            <th>상담 추천 ({usage.limits.user.counsel})</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -349,6 +350,7 @@ function AdminPage() {
                               <td>{row.ai}</td>
                               <td>{row.sespec}</td>
                               <td>{row.mask}</td>
+                              <td>{row.counsel}</td>
                             </tr>
                           ))}
                         </tbody>
