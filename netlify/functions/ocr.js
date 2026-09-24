@@ -1,5 +1,6 @@
 import { validateImagePayload } from './lib/fileValidation.js'
 import { guardUsage } from './lib/usage.js'
+import { logServerError } from './lib/errorLog.js'
 
 const VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate'
 
@@ -47,7 +48,7 @@ export const handler = async (event) => {
 
     const apiKey = process.env.GOOGLE_CLOUD_API_KEY
     if (!apiKey) {
-      console.error('[ocr] GOOGLE_CLOUD_API_KEY 환경변수가 설정되지 않았습니다.')
+      await logServerError(event, 'ocr', 'GOOGLE_CLOUD_API_KEY 환경변수가 설정되지 않았습니다.')
       return jsonResponse(500, { error: OCR_FAILURE_MESSAGE })
     }
 
@@ -66,25 +67,25 @@ export const handler = async (event) => {
         }),
       })
     } catch (err) {
-      console.error('[ocr] Vision API 호출 실패', err)
+      await logServerError(event, 'ocr', 'Vision API 호출 실패', err)
       return jsonResponse(502, { error: OCR_FAILURE_MESSAGE })
     }
 
     if (!response.ok) {
-      console.error('[ocr] Vision API 응답 오류', response.status)
+      await logServerError(event, 'ocr', 'Vision API 응답 오류', response.status)
       return jsonResponse(502, { error: OCR_FAILURE_MESSAGE })
     }
 
     const data = await response.json()
     const result = data.responses?.[0]
     if (result?.error) {
-      console.error('[ocr] Vision API 처리 오류', result.error)
+      await logServerError(event, 'ocr', 'Vision API 처리 오류', result.error)
       return jsonResponse(502, { error: OCR_FAILURE_MESSAGE })
     }
 
     return jsonResponse(200, { text: result?.fullTextAnnotation?.text ?? '' })
   } catch (err) {
-    console.error('[ocr] 처리되지 않은 오류', err)
+    await logServerError(event, 'ocr', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: OCR_FAILURE_MESSAGE })
   }
 }

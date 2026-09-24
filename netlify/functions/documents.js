@@ -1,5 +1,6 @@
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { requireSession } from './lib/session.js'
+import { logServerError } from './lib/errorLog.js'
 
 const COLLECTION_NAME = 'documents'
 
@@ -112,7 +113,7 @@ export const handler = async (event) => {
     await ref.delete()
     return jsonResponse(200, { success: true })
   } catch (err) {
-    console.error('[documents] 처리되지 않은 오류', err)
+    await logServerError(event, 'documents', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: '문서 처리 중 오류가 발생했습니다. 다시 시도해주세요.' })
   }
 }

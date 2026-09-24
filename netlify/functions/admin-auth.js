@@ -6,6 +6,7 @@
 
 import { issueAdminToken } from './lib/adminToken.js'
 import { hashPin } from './lib/pinHash.js'
+import { logServerError } from './lib/errorLog.js'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +43,7 @@ export const handler = async (event) => {
     const adminPinHash = process.env.ADMIN_PIN
 
     if (!adminPinHash) {
-      console.error('[admin-auth] ADMIN_PIN 환경변수가 설정되지 않았습니다.')
+      await logServerError(event, 'admin-auth', 'ADMIN_PIN 환경변수가 설정되지 않았습니다.')
       return jsonResponse(500, { error: '관리자 인증을 처리할 수 없습니다.' })
     }
 
@@ -52,7 +53,7 @@ export const handler = async (event) => {
 
     return jsonResponse(200, { success: false })
   } catch (err) {
-    console.error('[admin-auth] 처리되지 않은 오류', err)
+    await logServerError(event, 'admin-auth', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: '관리자 인증 중 오류가 발생했습니다. 다시 시도해주세요.' })
   }
 }

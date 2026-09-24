@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { getAdminDb } from './firebaseAdmin.js'
+import { logServerError } from './errorLog.js'
 
 // 로그인(PIN 확인) 성공 시 발급하는 세션 토큰.
 // - 토큰 원문은 브라우저 sessionStorage에만 두고, Firestore에는 SHA-256 해시만 저장한다.
@@ -96,7 +97,16 @@ function readBearerToken(event) {
  * 인증이 필요한 함수의 진입부에서 호출한다.
  * @returns {Promise<{ nickname: string } | { response: object }>} 실패 시 그대로 반환할 응답을 돌려준다.
  */
+const sessionCache = new WeakMap() // 같은 요청에서 세션을 두 번 확인하지 않도록 결과를 재사용한다.
+
 export async function requireSession(event) {
+  if (sessionCache.has(event)) return sessionCache.get(event)
+  const result = await verifyRequestSession(event)
+  if (!result.response || result.response.statusCode === 401) sessionCache.set(event, result)
+  return result
+}
+
+async function verifyRequestSession(event) {
   const unauthorized = () => ({
     response: jsonResponse(401, { error: SESSION_EXPIRED_MESSAGE, code: 'SESSION_EXPIRED' }),
   })
@@ -108,7 +118,7 @@ export async function requireSession(event) {
     const nickname = await verifySessionToken(getAdminDb(), token)
     return nickname ? { nickname } : unauthorized()
   } catch (err) {
-    console.error('[session] 세션 확인 실패', err)
+    await logServerError(event, 'session', '세션 확인 실패', err)
     return { response: jsonResponse(500, { error: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.' }) }
   }
 }

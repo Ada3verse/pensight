@@ -14,6 +14,7 @@ import PdfSectionModal from '../components/PdfSectionModal'
 import ManualMaskingEditor from '../components/ManualMaskingEditor'
 import ProcessSteps from '../components/ProcessSteps'
 import { notifyComplete } from '../utils/notify'
+import { setErrorContext } from '../utils/errorReporter'
 import { countAutoMasked } from '../utils/manualMasking'
 import './ResultPage.css'
 
@@ -287,6 +288,11 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
       setRetryingMapping(false)
     }
   }
+
+  useEffect(() => {
+    setErrorContext({ step: `ocr:${ocrStatus} / ai:${aiStatus}` })
+    return () => setErrorContext({ step: '' })
+  }, [ocrStatus, aiStatus])
 
   const steps = mode === 'ai' ? AI_STEPS : OCR_STEPS
   const progress = (() => {

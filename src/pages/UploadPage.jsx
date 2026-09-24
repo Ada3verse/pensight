@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { validateFiles } from '../utils/fileValidation'
 import { requestNotificationPermission } from '../utils/notify'
+import MyReferences from '../components/MyReferences'
 import './UploadPage.css'
 
 const MODE_LABELS = {
@@ -180,6 +181,8 @@ function UploadPage({ nickname, mode, onBack, onAnalyze }) {
         >
           분석 시작
         </button>
+
+        <MyReferences />
       </main>
     </div>
   )

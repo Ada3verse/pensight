@@ -1,5 +1,6 @@
 import { getAdminDb } from './firebaseAdmin.js'
 import { requireSession } from './session.js'
+import { logServerError } from './errorLog.js'
 
 // 외부 API(Claude / Google Cloud Vision) 비용 폭주를 막기 위한 일일 사용량 제한.
 // - usage/{YYYYMMDD}_{닉네임}: 닉네임별 당일 사용량
@@ -107,7 +108,7 @@ export async function guardUsage(kind, event) {
   try {
     result = await consumeUsage(getAdminDb(), kind, nickname)
   } catch (err) {
-    console.error('[usage] 사용량 확인 실패', err)
+    await logServerError(event, 'usage', '사용량 확인 실패', err)
     return jsonResponse(500, { error: USAGE_FAILURE_MESSAGE })
   }
 

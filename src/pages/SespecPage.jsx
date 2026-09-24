@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { extractTextFromFile, OcrError } from '../utils/ocrService'
 import ProcessSteps from '../components/ProcessSteps'
+import { setErrorContext } from '../utils/errorReporter'
 import { notifyComplete, requestNotificationPermission } from '../utils/notify'
 import { OCR_HINT, SESPEC_HINT, SESPEC_STEPS } from '../utils/processSteps'
 import { authedFetch } from '../utils/session'
@@ -81,6 +82,11 @@ function SespecPage({ nickname, onBack }) {
   const [results, setResults] = useState([])
   const [copyLabel, setCopyLabel] = useState('전체 복사')
   const [pdfGenerating, setPdfGenerating] = useState(false)
+
+  useEffect(() => {
+    setErrorContext({ step: `step ${step}${phase !== 'idle' ? ` / ${phase}` : ''}` })
+    return () => setErrorContext({ step: '' })
+  }, [step, phase])
 
   const canAddKeyword =
     Boolean(keywordInput.trim()) &&

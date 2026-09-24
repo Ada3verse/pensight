@@ -4,9 +4,14 @@ import {
   deleteNicknameAndDocuments,
   getAllDocuments,
   getNicknameStats,
+  getRecentErrors,
+  createSharedReference,
+  deleteSharedReference,
+  listSharedReferences,
   getTodayUsage,
   resetNicknamePin,
 } from '../utils/firestoreService'
+import { prepareReferenceUpload, SHARED_CATEGORIES } from '../utils/referenceService'
 import './AdminPage.css'
 
 const MODE_LABELS = {
@@ -25,8 +30,9 @@ const LOCK_DURATION_MS = 30000
 const TABS = [
   { id: 'stats', label: '전체 사용 현황' },
   { id: 'documents', label: '전체 문서 목록' },
+  { id: 'errors', label: '에러 현황' },
   { id: 'nicknames', label: '닉네임 관리' },
-  { id: 'manual', label: '공용 DB 매뉴얼' },
+  { id: 'manual', label: '매뉴얼 관리' },
 ]
 
 function formatDate(timestamp) {
@@ -145,6 +151,11 @@ function AdminPage() {
   const [documents, setDocuments] = useState([])
   const [nicknameStats, setNicknameStats] = useState([])
   const [usage, setUsage] = useState(null)
+  const [errorReport, setErrorReport] = useState(null)
+  const [manuals, setManuals] = useState([])
+  const [manualCategory, setManualCategory] = useState(SHARED_CATEGORIES[0].id)
+  const [manualUploading, setManualUploading] = useState(false)
+  const [manualMessage, setManualMessage] = useState({ type: '', text: '' })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [selectedDoc, setSelectedDoc] = useState(null)
@@ -155,14 +166,18 @@ function AdminPage() {
     setLoading(true)
     setLoadError('')
     try {
-      const [docs, stats, todayUsage] = await Promise.all([
+      const [docs, stats, todayUsage, errors, sharedReferences] = await Promise.all([
         getAllDocuments(),
         getNicknameStats(),
         getTodayUsage(),
+        getRecentErrors(),
+        listSharedReferences(),
       ])
       setDocuments(docs)
       setNicknameStats(stats)
       setUsage(todayUsage)
+      setErrorReport(errors)
+      setManuals(sharedReferences)
     } catch {
       setLoadError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
     } finally {
@@ -204,6 +219,33 @@ function AdminPage() {
     }
   }
 
+  const handleManualUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setManualUploading(true)
+    setManualMessage({ type: '', text: '' })
+    try {
+      await createSharedReference(manualCategory, await prepareReferenceUpload(file))
+      setManualMessage({ type: 'success', text: `'${file.name}'을(를) 등록했습니다.` })
+      setManuals(await listSharedReferences())
+    } catch (err) {
+      setManualMessage({ type: 'error', text: err.message })
+    } finally {
+      setManualUploading(false)
+    }
+  }
+
+  const handleManualDelete = async (item) => {
+    if (!window.confirm(`'${item.fileName}' 매뉴얼을 삭제하시겠습니까? 모든 교사의 AI 분석에서 제외됩니다.`)) return
+    try {
+      await deleteSharedReference(item.id)
+      setManuals((prev) => prev.filter((entry) => entry.id !== item.id))
+    } catch (err) {
+      setManualMessage({ type: 'error', text: err.message })
+    }
+  }
+
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY)
     setAuthenticated(false)
@@ -227,6 +269,12 @@ function AdminPage() {
           로그아웃
         </button>
       </header>
+
+      {errorReport && errorReport.lastHourCount >= errorReport.threshold && (
+        <div className="admin-alert-banner" role="alert">
+          ⚠️ 최근 1시간 동안 에러가 {errorReport.lastHourCount}건 발생했습니다. "에러 현황" 탭에서 확인해주세요.
+        </div>
+      )}
 
       <nav className="admin-tabs">
         {TABS.map((tab) => (
@@ -321,6 +369,57 @@ function AdminPage() {
               </section>
             )}
 
+            {activeTab === 'errors' && errorReport && (
+              <section className="admin-section">
+                <p className="admin-error-summary">
+                  최근 1시간 {errorReport.lastHourCount}건 · 최근 {errorReport.errors.length}건 표시
+                </p>
+                {errorReport.errors.length === 0 ? (
+                  <p className="admin-status">기록된 에러가 없습니다.</p>
+                ) : (
+                  <ul className="admin-error-list">
+                    {errorReport.errors.map((item) => (
+                      <li className="admin-error-item" key={item.id}>
+                        <details>
+                          <summary>
+                            <span className="admin-error-time">{formatDate(item.createdAt)}</span>
+                            <span className={`admin-error-source ${item.source}`}>
+                              {item.source === 'server' ? '서버' : '프론트'}
+                            </span>
+                            <span className="admin-error-name">{item.name || '-'}</span>
+                            <span className="admin-error-nickname">{item.nickname || '비로그인'}</span>
+                            <span className="admin-error-message">{item.message}</span>
+                          </summary>
+                          <dl className="admin-error-detail">
+                            {item.path && (
+                              <>
+                                <dt>요청 경로</dt>
+                                <dd>{item.path}</dd>
+                              </>
+                            )}
+                            {(item.page || item.step) && (
+                              <>
+                                <dt>페이지/단계</dt>
+                                <dd>{[item.page, item.step].filter(Boolean).join(' · ')}</dd>
+                              </>
+                            )}
+                            {item.stack && (
+                              <>
+                                <dt>스택 트레이스</dt>
+                                <dd>
+                                  <pre>{item.stack}</pre>
+                                </dd>
+                              </>
+                            )}
+                          </dl>
+                        </details>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
             {activeTab === 'documents' && (
               <section className="admin-section">
                 <table className="admin-table">
@@ -387,14 +486,74 @@ function AdminPage() {
 
             {activeTab === 'manual' && (
               <section className="admin-section">
-                <div className="admin-upload-area">
-                  <p className="admin-upload-title">공용 DB 매뉴얼 파일을 끌어다 놓으세요</p>
-                  <p className="admin-upload-hint">2차 기능으로 추후 제공됩니다.</p>
-                  <input type="file" className="admin-upload-input" disabled />
+                <p className="admin-manual-desc">
+                  여기에 올린 자료는 모든 교사의 AI 분석에 적용됩니다. 학폭 매뉴얼은 학교폭력 문서,
+                  진로 상담 매뉴얼은 진로 문서, 기타 공통 자료는 일반 문서 분석에 참고됩니다.
+                  텍스트가 있는 PDF·TXT만 지원하며(스캔본 불가) 최대 4MB, 50개까지 등록할 수 있습니다.
+                </p>
+                <div className="admin-manual-form">
+                  <select
+                    className="admin-manual-select"
+                    value={manualCategory}
+                    onChange={(event) => setManualCategory(event.target.value)}
+                    aria-label="자료 종류"
+                  >
+                    {SHARED_CATEGORIES.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <label className={`admin-upload-button ${manualUploading ? 'disabled' : ''}`}>
+                    {manualUploading ? '올리는 중...' : 'PDF·TXT 올리기'}
+                    <input
+                      type="file"
+                      className="admin-manual-input"
+                      accept=".pdf,.txt,application/pdf,text/plain"
+                      onChange={handleManualUpload}
+                      disabled={manualUploading}
+                    />
+                  </label>
                 </div>
-                <button type="button" className="admin-upload-button" disabled>
-                  준비 중
-                </button>
+                {manualMessage.text && (
+                  <p className={`admin-manual-message ${manualMessage.type}`} role="status">
+                    {manualMessage.text}
+                  </p>
+                )}
+                {manuals.length === 0 ? (
+                  <p className="admin-status">등록된 매뉴얼이 없습니다.</p>
+                ) : (
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>종류</th>
+                        <th>파일명</th>
+                        <th>업로드 일시</th>
+                        <th>분량</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {manuals.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.categoryLabel}</td>
+                          <td>{item.fileName}</td>
+                          <td>{formatDate(item.createdAt)}</td>
+                          <td>{item.charCount.toLocaleString()}자</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="admin-manual-delete"
+                              onClick={() => handleManualDelete(item)}
+                            >
+                              삭제
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </section>
             )}
           </>

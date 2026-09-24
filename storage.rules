@@ -1,0 +1,10 @@
+rules_version = '2';
+
+// 참고자료 원본 파일은 서버 함수(firebase-admin, 규칙을 우회함)만 읽고 쓴다. 클라이언트의 직접 접근은 모두 차단한다.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

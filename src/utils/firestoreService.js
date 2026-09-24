@@ -96,6 +96,24 @@ export async function getTodayUsage() {
   return postAdmin('usageToday')
 }
 
+// 공용 참고자료(매뉴얼) 관리 — 관리자 전용
+export async function listSharedReferences() {
+  const { references } = await postAdmin('referencesList')
+  return references
+}
+
+export async function createSharedReference(category, prepared) {
+  return postAdmin('referenceCreate', { category, ...prepared })
+}
+
+export async function deleteSharedReference(id) {
+  await postAdmin('referenceDelete', { id })
+}
+
+export async function getRecentErrors() {
+  return postAdmin('errorsRecent')
+}
+
 export async function resetNicknamePin(nickname) {
   await postAdmin('resetPin', { nickname })
 }

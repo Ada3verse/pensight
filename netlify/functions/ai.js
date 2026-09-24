@@ -1,5 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { guardUsage } from './lib/usage.js'
+import { logServerError } from './lib/errorLog.js'
+import { getAdminDb } from './lib/firebaseAdmin.js'
+import { requireSession } from './lib/session.js'
+import { buildAnalysisReferenceBlock } from './lib/references.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 1536
@@ -214,6 +218,7 @@ export const handler = async (event) => {
 
     const blocked = await guardUsage('ai', event)
     if (blocked) return blocked
+    const { nickname } = await requireSession(event)
 
     const safeAliases = Array.isArray(aliases) ? aliases.filter((a) => typeof a === 'string') : []
 
@@ -224,33 +229,41 @@ export const handler = async (event) => {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      console.error('[ai] ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+      await logServerError(event, 'ai', 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
       return jsonResponse(500, { error: AI_FAILURE_MESSAGE })
     }
 
     const client = new Anthropic({ apiKey })
+
+    // 등록된 매뉴얼·개인 참고자료가 있으면 프롬프트 앞에 붙인다. 없거나 조회에 실패하면 기존 프롬프트 그대로 사용한다.
+    let referenceBlock = ''
+    try {
+      referenceBlock = await buildAnalysisReferenceBlock(getAdminDb(), { docType, nickname, text })
+    } catch (err) {
+      await logServerError(event, 'ai', '참고자료 조회 실패(기존 프롬프트로 진행)', err)
+    }
 
     let response
     try {
       response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        messages: [{ role: 'user', content: buildPrompt(text, mode, docType, safeAliases) }],
+        messages: [{ role: 'user', content: referenceBlock + buildPrompt(text, mode, docType, safeAliases) }],
       })
     } catch (err) {
-      console.error('[ai] Anthropic API 호출 실패', err)
+      await logServerError(event, 'ai', 'Anthropic API 호출 실패', err)
       return jsonResponse(502, { error: AI_FAILURE_MESSAGE })
     }
 
     const textBlock = response.content.find((block) => block.type === 'text')
     if (!textBlock) {
-      console.error('[ai] Anthropic 응답에 text 블록이 없음', response)
+      await logServerError(event, 'ai', 'Anthropic 응답에 text 블록이 없음', response)
       return jsonResponse(502, { error: AI_FAILURE_MESSAGE })
     }
 
     return jsonResponse(200, { result: textBlock.text })
   } catch (err) {
-    console.error('[ai] 처리되지 않은 오류', err)
+    await logServerError(event, 'ai', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: AI_FAILURE_MESSAGE })
   }
 }

@@ -9,6 +9,7 @@ import SespecGenPage from './pages/SespecGenPage'
 import ToastHost from './components/ToastHost'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
+import { setErrorContext } from './utils/errorReporter'
 import { clearSessionToken, SESSION_EXPIRED_EVENT, SESSION_EXPIRED_MESSAGE } from './utils/session'
 
 const PROTECTED_PAGES = ['upload', 'result', 'vault', 'sespec', 'sespec-generate']
@@ -29,6 +30,11 @@ function AppRoutes() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  // 오류 기록에 남길 현재 화면 정보
+  useEffect(() => {
+    setErrorContext({ page: hash.startsWith('#/') ? hash.slice(1) : (page === 'landing' ? page : `${page} (${mode})`) })
+  }, [page, mode, hash])
 
   // 서버가 세션 토큰을 거부(401)하면 로그인 화면으로 돌려보내고 안내한다.
   useEffect(() => {

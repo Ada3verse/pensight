@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import MyReferences from '../components/MyReferences'
 import { deleteDocument, getDocuments, updateDocument } from '../utils/firestoreService'
 import { analyzeDocument, AiError } from '../utils/aiService'
 import { formatAiSummary } from '../utils/textFormat'
@@ -198,6 +199,8 @@ function VaultPage({ nickname, onBack }) {
             ))}
           </div>
         )}
+
+        <MyReferences />
       </main>
 
       {selectedDoc && (

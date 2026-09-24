@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { guardUsage } from './lib/usage.js'
+import { logServerError } from './lib/errorLog.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 4096
@@ -86,7 +87,7 @@ export const handler = async (event) => {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      console.error('[mask] ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+      await logServerError(event, 'mask', 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
       return jsonResponse(200, { text, success: false })
     }
 
@@ -100,19 +101,19 @@ export const handler = async (event) => {
         messages: [{ role: 'user', content: buildPrompt(text) }],
       })
     } catch (err) {
-      console.error('[mask] Anthropic API 호출 실패', err)
+      await logServerError(event, 'mask', 'Anthropic API 호출 실패', err)
       return jsonResponse(200, { text, success: false })
     }
 
     const textBlock = response.content.find((block) => block.type === 'text')
     if (!textBlock) {
-      console.error('[mask] Anthropic 응답에 text 블록이 없음', response)
+      await logServerError(event, 'mask', 'Anthropic 응답에 text 블록이 없음', response)
       return jsonResponse(200, { text, success: false })
     }
 
     return jsonResponse(200, { text: textBlock.text, success: true })
   } catch (err) {
-    console.error('[mask] 처리되지 않은 오류', err)
+    await logServerError(event, 'mask', '처리되지 않은 오류', err)
     return jsonResponse(200, { text: '', success: false })
   }
 }

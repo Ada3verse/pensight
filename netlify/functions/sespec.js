@@ -1,5 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { guardUsage } from './lib/usage.js'
+import { logServerError } from './lib/errorLog.js'
+import { getAdminDb } from './lib/firebaseAdmin.js'
+import { requireSession } from './lib/session.js'
+import { buildStyleExampleBlock } from './lib/references.js'
 
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOKENS = 8192
@@ -52,7 +56,7 @@ function buildStudentsBlock(students) {
     .join('\n\n')
 }
 
-function buildPrompt(mode, students) {
+function buildPrompt(mode, students, styleBlock = '') {
   const modeInstruction = MODE_INSTRUCTIONS[mode] ?? MODE_INSTRUCTIONS.subject
 
   return `다음은 여러 학생의 활동 결과물에서 추출한 텍스트와 키워드입니다.
@@ -65,7 +69,7 @@ function buildPrompt(mode, students) {
 4. 1인당 300자~400자
 5. 작성 순서: 활동명 → 구체적 행동 → 결과/성장 → 역량 함양
 ${modeInstruction}
-
+${styleBlock}
 학생별 정보:
 ${buildStudentsBlock(students)}
 
@@ -135,28 +139,38 @@ export const handler = async (event) => {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      console.error('[sespec] ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
+      await logServerError(event, 'sespec', 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.')
       return jsonResponse(500, { error: SESPEC_FAILURE_MESSAGE })
     }
 
     let generatedByAlias = new Map()
     if (pendingStudents.length > 0) {
       const client = new Anthropic({ apiKey })
+
+      // 교사 본인의 세특 예시문이 있으면 문체 학습용으로 프롬프트에 덧붙인다. 없거나 조회에 실패하면 기존 프롬프트 그대로 사용한다.
+      let styleBlock = ''
+      try {
+        const { nickname } = await requireSession(event)
+        styleBlock = await buildStyleExampleBlock(getAdminDb(), { nickname })
+      } catch (err) {
+        await logServerError(event, 'sespec', '세특 예시문 조회 실패(기존 프롬프트로 진행)', err)
+      }
+
       let response
       try {
         response = await client.messages.create({
           model: MODEL,
           max_tokens: MAX_TOKENS,
-          messages: [{ role: 'user', content: buildPrompt(resolvedMode, pendingStudents) }],
+          messages: [{ role: 'user', content: buildPrompt(resolvedMode, pendingStudents, styleBlock) }],
         })
       } catch (err) {
-        console.error('[sespec] Anthropic API 호출 실패', err)
+        await logServerError(event, 'sespec', 'Anthropic API 호출 실패', err)
         return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
       }
 
       const textBlock = response.content.find((block) => block.type === 'text')
       if (!textBlock) {
-        console.error('[sespec] Anthropic 응답에 text 블록이 없음', response)
+        await logServerError(event, 'sespec', 'Anthropic 응답에 text 블록이 없음', response)
         return jsonResponse(502, { error: SESPEC_FAILURE_MESSAGE })
       }
       generatedByAlias = parseBatchResponse(textBlock.text)
@@ -171,7 +185,7 @@ export const handler = async (event) => {
 
     return jsonResponse(200, { results })
   } catch (err) {
-    console.error('[sespec] 처리되지 않은 오류', err)
+    await logServerError(event, 'sespec', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: SESPEC_FAILURE_MESSAGE })
   }
 }

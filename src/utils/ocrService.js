@@ -30,7 +30,7 @@ function fileToBase64(file) {
 
 let pdfjsLoadPromise = null
 
-function loadPdfJs() {
+export function loadPdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib)
   if (pdfjsLoadPromise) return pdfjsLoadPromise
 

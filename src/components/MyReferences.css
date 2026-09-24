@@ -1,0 +1,152 @@
+.my-refs {
+  width: 100%;
+  max-width: 640px;
+  margin: 8px auto 0;
+  padding: 20px;
+  box-sizing: border-box;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 14px;
+  background: #ffffff;
+  text-align: left;
+  color: #2c2a3a;
+}
+
+.my-refs h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+
+.my-refs-desc,
+.my-refs-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 165%;
+  color: #6b6375;
+}
+
+.my-refs-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.my-refs-select {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.my-refs-upload {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--main, #534ab7);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.my-refs-upload:disabled {
+  background: #c9c5e0;
+  cursor: not-allowed;
+}
+
+.my-refs-input {
+  display: none;
+}
+
+.my-refs-message {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.my-refs-message.success {
+  background: #eafbf1;
+  color: #1a8f4c;
+}
+
+.my-refs-message.error {
+  background: #fdf2f2;
+  color: #b3261e;
+}
+
+.my-refs-empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #8b8494;
+}
+
+.my-refs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.my-refs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--main-border, #ded9f5);
+  border-radius: 10px;
+}
+
+.my-refs-item-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.my-refs-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--main-light, #f2f0fb);
+  color: var(--main, #534ab7);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.my-refs-name {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.my-refs-meta {
+  font-size: 12px;
+  color: #8b8494;
+}
+
+.my-refs-delete {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #e2b8b8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .my-refs-form {
+    flex-direction: column;
+  }
+}

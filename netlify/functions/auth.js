@@ -1,6 +1,7 @@
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { hashPin } from './lib/pinHash.js'
 import { issueSession } from './lib/session.js'
+import { logServerError } from './lib/errorLog.js'
 
 const USERS_COLLECTION = 'users'
 
@@ -77,7 +78,7 @@ export const handler = async (event) => {
 
     return jsonResponse(400, { error: '알 수 없는 요청입니다.' })
   } catch (err) {
-    console.error('[auth] 처리되지 않은 오류', err)
+    await logServerError(event, 'auth', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: '처리 중 오류가 발생했습니다. 다시 시도해주세요.' })
   }
 }

@@ -1,7 +1,10 @@
 import { getAdminDb } from './lib/firebaseAdmin.js'
 import { verifyAdminToken } from './lib/adminToken.js'
 import { getTodayUsage } from './lib/usage.js'
+import { getRecentErrors } from './lib/errorStats.js'
+import { createReference, deleteReference, listReferences } from './lib/references.js'
 import { deleteAllSessions } from './lib/session.js'
+import { logServerError } from './lib/errorLog.js'
 
 const DOCUMENTS_COLLECTION = 'documents'
 const USERS_COLLECTION = 'users'
@@ -92,6 +95,26 @@ export const handler = async (event) => {
       return jsonResponse(200, await getTodayUsage(db))
     }
 
+    if (action === 'errorsRecent') {
+      return jsonResponse(200, await getRecentErrors(db))
+    }
+
+    if (action === 'referencesList') {
+      return jsonResponse(200, { references: await listReferences(db, { scope: 'shared' }) })
+    }
+
+    if (action === 'referenceCreate') {
+      const result = await createReference(db, { ...payload, scope: 'shared' })
+      if (!result.ok) return jsonResponse(result.status, { error: result.message })
+      return jsonResponse(200, { id: result.id, fileStored: result.fileStored })
+    }
+
+    if (action === 'referenceDelete') {
+      if (typeof payload.id !== 'string' || !payload.id) return jsonResponse(400, { error: '잘못된 요청입니다.' })
+      const deleted = await deleteReference(db, { id: payload.id, scope: 'shared' })
+      return deleted ? jsonResponse(200, { success: true }) : jsonResponse(404, { error: '자료를 찾을 수 없습니다.' })
+    }
+
     if (action === 'resetPin') {
       if (!nickname) return jsonResponse(400, { error: '닉네임이 필요합니다.' })
       await resetPin(db, nickname)
@@ -106,7 +129,7 @@ export const handler = async (event) => {
 
     return jsonResponse(400, { error: '알 수 없는 요청입니다.' })
   } catch (err) {
-    console.error('[admin-data] 처리되지 않은 오류', err)
+    await logServerError(event, 'admin-data', '처리되지 않은 오류', err)
     return jsonResponse(500, { error: '처리 중 오류가 발생했습니다. 다시 시도해주세요.' })
   }
 }

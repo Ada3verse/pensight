@@ -494,3 +494,194 @@
     min-height: 44px;
   }
 }
+
+/* 에러 현황 */
+.admin-alert-banner {
+  padding: 12px 32px;
+  background: #fdecea;
+  border-bottom: 1px solid #f3c6c6;
+  color: #b3261e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-error-summary {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #6b6375;
+}
+
+.admin-error-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-error-item {
+  border: 1px solid var(--main-border);
+  border-radius: 10px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.admin-error-item summary {
+  display: grid;
+  grid-template-columns: 130px 56px 110px 90px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-error-time,
+.admin-error-nickname {
+  color: #6b6375;
+}
+
+.admin-error-name {
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.admin-error-message {
+  color: #b3261e;
+  word-break: break-word;
+}
+
+.admin-error-source {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--main-light);
+  color: var(--main);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.admin-error-source.server {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+.admin-error-detail {
+  margin: 0;
+  padding: 0 14px 12px;
+  font-size: 12px;
+}
+
+.admin-error-detail dt {
+  margin-top: 8px;
+  font-weight: 700;
+  color: #6b6375;
+}
+
+.admin-error-detail dd {
+  margin: 2px 0 0;
+  word-break: break-all;
+}
+
+.admin-error-detail pre {
+  margin: 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #f6f5fb;
+  white-space: pre-wrap;
+  font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .admin-alert-banner {
+    padding: 12px 16px;
+  }
+
+  .admin-error-item summary {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+/* 매뉴얼 관리 */
+.admin-manual-desc {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 170%;
+  color: #6b6375;
+  text-align: left;
+}
+
+.admin-manual-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-manual-select {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--main-border);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.admin-manual-form .admin-upload-button {
+  background: var(--main);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.admin-manual-form .admin-upload-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-manual-input {
+  display: none;
+}
+
+.admin-manual-message {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.admin-manual-message.success {
+  background: #eafbf1;
+  color: #1a8f4c;
+}
+
+.admin-manual-message.error {
+  background: #fdf2f2;
+  color: #b3261e;
+}
+
+.admin-manual-delete {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #e2b8b8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #b3261e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .admin-manual-form {
+    flex-direction: column;
+  }
+}
