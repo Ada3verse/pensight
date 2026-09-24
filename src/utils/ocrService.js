@@ -51,13 +51,15 @@ export function loadPdfJs() {
   return pdfjsLoadPromise
 }
 
-async function callVisionApi(base64Image, mimeType) {
+// 서버(ocr 함수)가 OCR 직후 개인정보를 마스킹해서 내려준다. 브라우저는 마스킹 전 원문을 받지 않는다.
+// 응답: { maskedText, mappingTable: [{ alias, name }], mappingStatus: 'success' | 'empty', autoMaskCount }
+async function callOcrApi(base64Image, mimeType, priorMapping = []) {
   let response
   try {
     response = await authedFetch(OCR_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64Image, mimeType }),
+      body: JSON.stringify({ imageBase64: base64Image, mimeType, priorMapping }),
     })
   } catch {
     throw new OcrError('network', '네트워크 연결을 확인하고 몇 분 후 다시 시도해주세요.')
@@ -67,24 +69,25 @@ async function callVisionApi(base64Image, mimeType) {
     throw new OcrError('limit', await readLimitMessage(response))
   }
 
-  if (!response.ok) {
-    throw new OcrError('api', 'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data || data.error) {
+    throw new OcrError('api', data?.error || 'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
   }
 
-  const data = await response.json()
-  if (data.error) {
-    throw new OcrError('api', 'OCR 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+  return {
+    maskedText: data.maskedText ?? '',
+    mappingTable: Array.isArray(data.mappingTable) ? data.mappingTable : [],
+    mappingStatus: data.mappingStatus ?? 'empty',
+    autoMaskCount: data.autoMaskCount ?? 0,
   }
-
-  return data.text ?? ''
 }
 
-async function extractTextFromImage(file) {
+async function extractFromImage(file) {
   const base64 = await fileToBase64(file)
-  return callVisionApi(base64, file.type)
+  return callOcrApi(base64, file.type)
 }
 
-async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
+async function extractFromPdf(file, { onProgress, onNotice } = {}) {
   const pdfjsLib = await loadPdfJs()
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
@@ -95,7 +98,7 @@ async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
     onNotice?.(PAGE_LIMIT_MESSAGE)
   }
 
-  async function renderAndRecognizePage(pageNumber) {
+  async function renderAndRecognizePage(pageNumber, priorMapping) {
     onProgress?.(`PDF 분석 중... (${pageNumber}/${pagesToProcess}페이지)`)
     const page = await pdf.getPage(pageNumber)
     const viewport = page.getViewport({ scale: PDF_RENDER_SCALE })
@@ -105,14 +108,19 @@ async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
     const context = canvas.getContext('2d')
     await page.render({ canvasContext: context, viewport }).promise
     const base64 = canvas.toDataURL('image/png').split(',')[1]
-    return callVisionApi(base64, 'image/png')
+    return callOcrApi(base64, 'image/png', priorMapping)
   }
 
   const sections = []
+  let mappingTable = []
+  let autoMaskCount = 0
   for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber += 1) {
     try {
-      const pageText = await renderAndRecognizePage(pageNumber)
-      sections.push(pageText)
+      // 페이지마다 별칭(가/나/다)이 달라지지 않도록 앞 페이지까지의 매핑표를 이어서 넘긴다.
+      const page = await renderAndRecognizePage(pageNumber, mappingTable)
+      sections.push(page.maskedText)
+      mappingTable = page.mappingTable
+      autoMaskCount += page.autoMaskCount
     } catch (err) {
       // 사용량 한도 초과는 이후 페이지도 모두 실패하므로 페이지별 실패로 넘기지 않고 바로 알린다.
       if (err instanceof OcrError && err.type === 'limit') throw err
@@ -123,12 +131,23 @@ async function extractTextFromPdf(file, { onProgress, onNotice } = {}) {
   // 페이지 사이는 문단 구분(빈 줄)만 넣고, 페이지 번호 표시는 넣지 않는다.
   // 표시를 넣으면 문장이 페이지 경계에서 이어지는 경우 그 표시가 문장
   // 중간에 끼어들어 텍스트가 부자연스럽게 끊겨 보인다.
-  return sections.join('\n\n')
+  return {
+    maskedText: sections.join('\n\n'),
+    mappingTable,
+    mappingStatus: mappingTable.length > 0 ? 'success' : 'empty',
+    autoMaskCount,
+  }
 }
 
-export async function extractTextFromFile(file, options) {
+/** 파일을 OCR하고 서버에서 마스킹된 결과({ maskedText, mappingTable, mappingStatus, autoMaskCount })를 돌려준다. */
+export async function extractMaskedDocument(file, options) {
   if (file.type === 'application/pdf') {
-    return extractTextFromPdf(file, options)
+    return extractFromPdf(file, options)
   }
-  return extractTextFromImage(file)
+  return extractFromImage(file)
+}
+
+/** 마스킹된 텍스트만 필요한 호출자(세특 생성 흐름)용. */
+export async function extractTextFromFile(file, options) {
+  return (await extractMaskedDocument(file, options)).maskedText
 }

@@ -15,12 +15,6 @@
   font-weight: 600;
 }
 
-.manual-mask-guide.failed {
-  border-color: #f6e29b;
-  background: #fdf7e3;
-  color: #9a7615;
-}
-
 .manual-mask-count {
   margin: 0;
   font-size: 13px;

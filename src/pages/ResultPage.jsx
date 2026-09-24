@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { extractTextFromFile, OcrError } from '../utils/ocrService'
+import { extractMaskedDocument, OcrError } from '../utils/ocrService'
 import { analyzeDocument, AiError } from '../utils/aiService'
-import { maskPersonalInfo } from '../utils/maskingService'
 import { saveDocument, updateDocument } from '../utils/firestoreService'
 import {
   formatAiSummary,
@@ -16,7 +15,6 @@ import ProcessSteps from '../components/ProcessSteps'
 import CounselRecommendation from '../components/CounselRecommendation'
 import { notifyComplete } from '../utils/notify'
 import { setErrorContext } from '../utils/errorReporter'
-import { countAutoMasked } from '../utils/manualMasking'
 import './ResultPage.css'
 
 const MODE_LABELS = {
@@ -39,12 +37,8 @@ const SAVE_BUTTON_LABELS = {
   error: '저장 실패',
 }
 
-const STAGE_MESSAGES = [
-  '이미지 전처리 중...',
-  'OCR 분석 중...',
-  '개인정보 마스킹 중...',
-  '완료',
-]
+// OCR과 개인정보 마스킹은 서버에서 한 번에 처리된다(마스킹 전 원문은 브라우저로 내려오지 않는다).
+const STAGE_MESSAGES = ['이미지 전처리 중...', 'OCR 분석 및 개인정보 자동 마스킹 중...', '완료']
 
 // 처리 단계 인디케이터. AI 분석 모드는 마스킹·AI 분석 단계가 포함된다.
 const OCR_STEPS = ['파일 업로드', '텍스트 추출 중', '완료']
@@ -52,13 +46,7 @@ const AI_STEPS = ['파일 업로드', '텍스트 추출 중', '개인정보 마�
 const OCR_HINT = '보통 10~30초'
 const AI_HINT = '보통 30~60초'
 
-const MASKING_NOTICE_MESSAGES = {
-  success: '개인정보가 자동으로 마스킹되었습니다. 내용을 확인하고 필요시 직접 수정해주세요.',
-  error: '개인정보 자동 마스킹에 실패했습니다. 업로드 전 민감 정보를 직접 확인하고 수정해주세요.',
-}
-
 const MAPPING_EMPTY_MESSAGE = '분석된 인물 정보가 없습니다.'
-const MAPPING_ERROR_MESSAGE = '매핑표를 불러오지 못했습니다. 다시 시도해주세요.'
 
 const VIOLENCE_WARNING_MESSAGE = '⚠️ 이 문서는 외부에 공유하지 마세요.'
 
@@ -90,15 +78,10 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
   const [ocrStatus, setOcrStatus] = useState('processing')
   const [ocrText, setOcrText] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [maskingNotice, setMaskingNotice] = useState(null)
-  const [maskingLimitMessage, setMaskingLimitMessage] = useState('')
   const [autoMaskCount, setAutoMaskCount] = useState(0)
-  const [autoMaskFailed, setAutoMaskFailed] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
-  const [editorKey, setEditorKey] = useState(0)
   const [mappingTable, setMappingTable] = useState([])
   const [mappingStatus, setMappingStatus] = useState('empty')
-  const [retryingMapping, setRetryingMapping] = useState(false)
   const [ocrProgressMessage, setOcrProgressMessage] = useState('')
   const [pageLimitNotice, setPageLimitNotice] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
@@ -122,15 +105,14 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
       try {
         setOcrStatus('processing')
         setErrorMessage('')
-        setMaskingNotice(null)
-        setAutoMaskFailed(false)
         setStageIndex(0)
         setOcrProgressMessage('')
         setPageLimitNotice('')
         await delay(300)
         if (cancelled) return
         setStageIndex(1)
-        const text = await extractTextFromFile(file, {
+        // 서버가 OCR 직후 마스킹까지 끝낸 결과만 내려준다(마스킹 전 원문은 받지 않음).
+        const result = await extractMaskedDocument(file, {
           onProgress: (message) => {
             if (!cancelled) setOcrProgressMessage(message)
           },
@@ -140,26 +122,20 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
         })
         if (cancelled) return
         setOcrProgressMessage('')
+        setOcrText(result.maskedText)
+        setMappingTable(result.mappingTable)
+        setMappingStatus(result.mappingStatus)
+        setAutoMaskCount(result.autoMaskCount)
         setStageIndex(2)
-        const maskingResult = await maskPersonalInfo(text)
-        if (cancelled) return
-        setOcrText(maskingResult.maskedText)
-        setMappingTable(maskingResult.mappingTable)
-        setMappingStatus(maskingResult.mappingStatus)
-        setStageIndex(3)
         await delay(400)
         if (cancelled) return
-        // 자동 마스킹이 끝나면 곧바로 완료가 아니라 교사 수동 보완(2단계)으로 넘어간다.
+        // 자동 마스킹이 끝난 상태에서 곧바로 교사 수동 보완(2단계)으로 넘어간다.
         setOcrStatus('reviewing')
         notifyComplete(
           mode === 'ai'
             ? '텍스트 추출이 완료됐습니다. 개인정보를 확인해주세요.'
             : '텍스트 추출이 완료됐습니다.',
         )
-        setMaskingNotice(maskingResult.success ? 'success' : 'error')
-        setMaskingLimitMessage(maskingResult.limitMessage ?? '')
-        setAutoMaskFailed(!maskingResult.success)
-        setAutoMaskCount(countAutoMasked(text, maskingResult.maskedText, maskingResult.mappingTable))
       } catch (err) {
         if (cancelled) return
         setErrorMessage(err instanceof OcrError ? err.message : DEFAULT_ERROR_MESSAGE)
@@ -244,27 +220,9 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
     setAiStatus('loading')
   }
 
-  const handleRetryAutoMask = async () => {
-    setRetryingMapping(true)
-    try {
-      const maskingResult = await maskPersonalInfo(ocrText)
-      setOcrText(maskingResult.maskedText)
-      setMappingTable(maskingResult.mappingTable)
-      setMappingStatus(maskingResult.mappingStatus)
-      setAutoMaskFailed(!maskingResult.success)
-      setMaskingLimitMessage(maskingResult.limitMessage ?? '')
-      setAutoMaskCount(countAutoMasked(ocrText, maskingResult.maskedText, maskingResult.mappingTable))
-      // 편집기는 초기 텍스트로만 상태를 만들기 때문에 새 결과를 반영하려면 다시 마운트한다.
-      setEditorKey((key) => key + 1)
-    } finally {
-      setRetryingMapping(false)
-    }
-  }
-
   const handleManualMaskComplete = (finalText) => {
     setOcrText(finalText)
     setOcrStatus('done')
-    setMaskingNotice(null)
   }
 
   const handleTextChange = (event) => {
@@ -274,20 +232,6 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
 
   const handleStartAi = () => {
     setAiStatus('loading')
-  }
-
-  const handleRetryMapping = async () => {
-    setRetryingMapping(true)
-    try {
-      const maskingResult = await maskPersonalInfo(ocrText)
-      setOcrText(maskingResult.maskedText)
-      setMappingTable(maskingResult.mappingTable)
-      setMappingStatus(maskingResult.mappingStatus)
-      setMaskingNotice(maskingResult.success ? 'success' : 'error')
-      setMaskingLimitMessage(maskingResult.limitMessage ?? '')
-    } finally {
-      setRetryingMapping(false)
-    }
   }
 
   useEffect(() => {
@@ -304,23 +248,9 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
     })
     if (ocrStatus === 'error') return failedAt(1, errorMessage, file ? handleRetryOcr : undefined, '텍스트 추출 다시 시도')
     if (ocrStatus === 'processing') {
-      if (mode === 'ai' && stageIndex >= 2) {
-        return { current: 2, state: 'running', hint: '자동 감지 후 직접 확인·보완하는 단계입니다.' }
-      }
-      return { current: 1, state: 'running', hint: OCR_HINT }
+      return { current: 1, state: 'running', hint: OCR_HINT, detail: '서버에서 텍스트를 읽고 개인정보를 자동으로 가리는 중입니다.' }
     }
     if (ocrStatus === 'reviewing') {
-      if (mode !== 'ai') {
-        return { current: 2, state: 'waiting', detail: "개인정보를 확인하고 '마스킹 완료'를 눌러주세요." }
-      }
-      if (autoMaskFailed) {
-        return failedAt(
-          2,
-          `${maskingLimitMessage ? `${maskingLimitMessage} ` : ''}자동 마스킹에 실패했습니다. 직접 가리거나 다시 시도해주세요.`,
-          retryingMapping ? undefined : handleRetryAutoMask,
-          '자동 마스킹 다시 시도',
-        )
-      }
       return { current: 2, state: 'waiting', detail: "개인정보를 확인하고 '마스킹 완료'를 눌러주세요." }
     }
     if (mode !== 'ai') return { current: 2, state: 'complete' }
@@ -414,23 +344,6 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
         </div>
       )}
 
-      {maskingNotice && ocrStatus !== 'reviewing' && (
-        <div className={`masking-notice ${maskingNotice}`}>
-          <span>
-            {maskingLimitMessage && `${maskingLimitMessage} `}
-            {MASKING_NOTICE_MESSAGES[maskingNotice]}
-          </span>
-          <button
-            type="button"
-            className="masking-notice-close"
-            onClick={() => setMaskingNotice(null)}
-            aria-label="안내 닫기"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       <main className="result-main">
         <section className="result-preview">
           <div className="preview-frame">
@@ -491,11 +404,8 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
 
           {ocrStatus === 'error' ? null : ocrStatus === 'reviewing' ? (
             <ManualMaskingEditor
-              key={editorKey}
               initialText={ocrText}
               autoMaskCount={autoMaskCount}
-              autoMaskFailed={autoMaskFailed}
-              failureNote={maskingLimitMessage}
               onComplete={handleManualMaskComplete}
             />
           ) : ocrStatus !== 'done' ? (
@@ -504,7 +414,7 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
               {ocrProgressMessage && (
                 <span className="stage-page-progress">{ocrProgressMessage}</span>
               )}
-              {stageIndex === 2 && (
+              {stageIndex >= 1 && (
                 <div className="masking-progress" role="status">
                   <span className="masking-spinner" aria-hidden="true" />
                   개인정보를 자동으로 감지하는 중...
@@ -537,20 +447,6 @@ function ResultPage({ files = [], nickname, mode, docType, onBack, onSespecGener
 
           {ocrStatus === 'done' && mappingStatus === 'empty' && (
             <p className="mapping-table-empty">{MAPPING_EMPTY_MESSAGE}</p>
-          )}
-
-          {ocrStatus === 'done' && mappingStatus === 'error' && (
-            <div className="mapping-table-error">
-              <span>{MAPPING_ERROR_MESSAGE}</span>
-              <button
-                type="button"
-                className="mapping-retry-button"
-                onClick={handleRetryMapping}
-                disabled={retryingMapping}
-              >
-                {retryingMapping ? '재시도 중...' : '다시 시도'}
-              </button>
-            </div>
           )}
 
           <div className="ai-section">

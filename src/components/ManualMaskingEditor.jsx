@@ -3,7 +3,7 @@ import { applyMask, splitMaskSegments } from '../utils/manualMasking'
 import './ManualMaskingEditor.css'
 
 // 자동 마스킹이 끝난 텍스트를 보여주고, 교사가 드래그로 고른 부분을 즉시 ■■■으로 치환한다.
-function ManualMaskingEditor({ initialText, autoMaskCount, autoMaskFailed, failureNote, onComplete }) {
+function ManualMaskingEditor({ initialText, autoMaskCount, onComplete }) {
   const [text, setText] = useState(initialText)
   const [history, setHistory] = useState([])
   const textRef = useRef(null)
@@ -56,18 +56,12 @@ function ManualMaskingEditor({ initialText, autoMaskCount, autoMaskFailed, failu
 
   return (
     <div className="manual-mask">
-      <div className={`manual-mask-guide ${autoMaskFailed ? 'failed' : ''}`}>
-        {autoMaskFailed
-          ? `${failureNote ? `${failureNote} ` : ''}자동 마스킹에 실패했습니다. 가릴 내용을 직접 드래그하세요.`
-          : '자동 마스킹 완료. 추가로 가릴 내용을 드래그하세요.'}
-      </div>
-      {!autoMaskFailed && (
-        <p className="manual-mask-count">
-          {autoMaskCount > 0
-            ? `총 ${autoMaskCount}곳이 자동으로 마스킹되었습니다.`
-            : '자동으로 마스킹된 곳이 없습니다.'}
-        </p>
-      )}
+      <div className="manual-mask-guide">자동 마스킹 완료. 추가로 가릴 내용을 드래그하세요.</div>
+      <p className="manual-mask-count">
+        {autoMaskCount > 0
+          ? `총 ${autoMaskCount}곳이 자동으로 마스킹되었습니다.`
+          : '자동으로 마스킹된 곳이 없습니다.'}
+      </p>
 
       <div
         ref={textRef}

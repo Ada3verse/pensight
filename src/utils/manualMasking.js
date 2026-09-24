@@ -2,7 +2,7 @@
 
 export const MASK_TOKEN = '■■■'
 
-// 마스킹된 것으로 보이는 구간: 교사가 가린 ■ 블록 + 자동 마스킹(netlify/functions/mask.js 프롬프트)이
+// 마스킹된 것으로 보이는 구간: 교사가 가린 ■ 블록 + 자동 마스킹(netlify/functions/lib/masking.js 프롬프트)이
 // 만들어내는 고정 형식(전화번호·학번·생년월일·주소).
 const MASKED_PATTERN_SOURCE = '■+|010-\\*{4}-\\*{4}|\\*{4}년 \\*{2}월 \\*{2}일|○○시 ○○구 \\*{3}|\\*{6}'
 
@@ -38,20 +38,4 @@ export function applyMask(text, start, end) {
   while (to > from && /\s/.test(text[to - 1])) to -= 1
   if (from >= to) return null
   return text.slice(0, from) + MASK_TOKEN + text.slice(to)
-}
-
-/**
- * 자동 마스킹된 곳의 개수(근사값).
- * - 이름: 원문에서 인물 매핑표의 실제 이름이 등장한 횟수
- * - 전화번호·학번·생년월일·주소: 마스킹 결과에서 고정 형식이 나타난 횟수
- */
-export function countAutoMasked(originalText, maskedText, mappingTable = []) {
-  const names = new Set(mappingTable.map((entry) => entry.name).filter((name) => name && name !== '-'))
-  let count = 0
-  for (const name of names) {
-    count += originalText.split(name).length - 1
-  }
-  const patternOnly = MASKED_PATTERN_SOURCE.replace('■+|', '')
-  count += (maskedText.match(new RegExp(patternOnly, 'g')) ?? []).length
-  return count
 }
