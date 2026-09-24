@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { downloadPdf, downloadTxt, downloadXlsx } from '../utils/sespecDownload'
 import './SespecGeneratorForm.css'
 
 const SESPEC_FUNCTION_URL = '/.netlify/functions/sespec'
@@ -66,6 +67,8 @@ function SespecGeneratorForm({ initialStudents = [] }) {
   const [error, setError] = useState('')
   const [results, setResults] = useState(null)
   const [copyStates, setCopyStates] = useState({})
+  const [resultMeta, setResultMeta] = useState(null)
+  const [downloading, setDownloading] = useState(false)
   const [copyAllLabel, setCopyAllLabel] = useState('전체 복사')
 
   const mode = grade ? resolveMode(grade) : null
@@ -116,6 +119,11 @@ function SespecGeneratorForm({ initialStudents = [] }) {
     try {
       const batchResults = await requestSespecGeneration(payload)
       setResults(batchResults)
+      setResultMeta({
+        subjectName: subjectName.trim(),
+        grade,
+        activityName: activityName.trim(),
+      })
     } catch {
       setError('세특 생성 중 오류가 발생했습니다. 다시 시도해주세요.')
     } finally {
@@ -125,6 +133,20 @@ function SespecGeneratorForm({ initialStudents = [] }) {
 
   const handleResultTextChange = (alias, value) => {
     setResults((prev) => prev.map((item) => (item.alias === alias ? { ...item, sespec: value } : item)))
+  }
+
+  const hasResults = Boolean(results && results.length > 0)
+
+  const handleDownload = async (download) => {
+    if (!hasResults || downloading) return
+    setDownloading(true)
+    try {
+      await download(results, resultMeta)
+    } catch {
+      setError('파일 다운로드 중 오류가 발생했습니다. 다시 시도해주세요.')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleCopyOne = async (alias, text) => {
@@ -319,6 +341,30 @@ function SespecGeneratorForm({ initialStudents = [] }) {
           <div className="sespec-gen-step-actions">
             <button type="button" className="sespec-gen-secondary-button" onClick={handleCopyAll}>
               {copyAllLabel}
+            </button>
+            <button
+              type="button"
+              className="sespec-gen-secondary-button"
+              onClick={() => handleDownload(downloadXlsx)}
+              disabled={!hasResults || downloading}
+            >
+              XLSX 다운로드
+            </button>
+            <button
+              type="button"
+              className="sespec-gen-secondary-button"
+              onClick={() => handleDownload(downloadPdf)}
+              disabled={!hasResults || downloading}
+            >
+              PDF 다운로드
+            </button>
+            <button
+              type="button"
+              className="sespec-gen-secondary-button"
+              onClick={() => handleDownload(downloadTxt)}
+              disabled={!hasResults || downloading}
+            >
+              TXT 다운로드
             </button>
           </div>
         </section>
